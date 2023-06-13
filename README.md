@@ -4,12 +4,10 @@ A program that is in development to make the process of connecting to [OverTheWi
 
 ## Planned Features
 
-- Connect to level and start working by simply providing the level name to the program.
-- Allows you to store the level passwords you've uncovered.
-- Otherwise, you can just provide the password at connection time.
-- Display user's progress.
-- Monitors OTW website for changes to the host names, ports, and available levels that are in use once per month, if desired.
-- Uses libssh2 to connect to OTW levels with SSH version 2.
+- Stores the level passwords you've uncovered locally.
+- Connect to a wargame and start working by simply providing the level name (if password is stored).
+- Display user's progress in completing all of the wargames.
+- Uses libssh2 to connect to OTW wargames.
 
 ## Requirements
 
@@ -31,20 +29,21 @@ make
 ## Usage
 
 ```
-bin/otw [-h|--help] [-u|--user] [-s|--store <level-password>] <level-name>
+bin/otw [-h|--help] [-d|--display] [-c|--complete <level>] [-s|--store <password> <level>]
+bin/otw <level-name>
 ```
 
 ## Examples
 
 ```bash
 # Stores the password ("deadbeef") for the OTW
-# bandit 2 wargame to speed up connection to the level.
+# bandit2 wargame to speed up future connections to the wargame.
 bin/otw -s deadbeef bandit2
 
-# Connects to the OTW bandit 2 wargame over SSH.
+# Connects to the OTW bandit2 wargame over SSH.
 bin/otw bandit2
 
 # Displays the user's progress at completing all
 # of the OTW wargames.
-bin/otw -u
+bin/otw -d
 ```
