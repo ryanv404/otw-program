@@ -1,0 +1,58 @@
+MAIN.C
+[x] check argc > 1
+[x] parse_opts(int argcount, char **args, arg_t *split_arg)
+[_] is_valid_level(arg_t *split_arg)
+[_] get_level_info(arg_t *split_arg, level_t *level)
+[_] connect_to_game(level_t *level)
+
+PARSE_OPTS.C
+[x] parse_opts(int argcount, char **args, arg_t *split_arg)
+
+CONSTANTS.H
+MAX_NAME = 12
+
+TYPEDEFS.H
+typedef struct game_t {
+	char	name[MAX_NAME];
+	int		min_level;
+	int		max_level;
+} game_t;
+
+typedef struct arg_t {
+	char	level_name[MAX_NAME];
+	int		level_num;
+} arg_t;
+
+typedef struct level_t {
+	char	level_name[MAX_NAME];
+	int		level_num;
+} level_t;
+
+VALIDATE.C
+[_] is_valid_level(arg_t *split_arg)
+[_] is_valid_levelname(char *level_name)
+[_] is_valid_levelnum(int level_num)
+[_] get_level_info(arg_t *split_arg, level_t *level)
+
+SSH_CONNECT.C
+[_] pw_is_available_for(char *level)
+[_] connect_to_game(level_t *level)
+[_] ssh_connect(char *host, char *port, char *user, char *pw)
+
+AUTHENTICATE.C
+[_] store_pw(char *pw); if connection succeeds, store pass for future connections
+
+UTILS.C
+[x] show_usage()
+[x] show_help()
+
+PROGRESS.C
+[_] mark_level_complete(char *level, char *name)
+[_] mark_game_complete(char *game, char *name)
+[_] show_progress()
+
+
+For natas levels, just display the following on the CLI (where X is the level number):
+USERNAME:  natasX
+PASSWORD:  natasX  <-- if known
+URL:       http://natasX.natas.labs.overthewire.org
