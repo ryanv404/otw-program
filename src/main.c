@@ -1,38 +1,34 @@
-/* main.c */
+/* main.c - OTW program */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "typedefs.h" /* struct typedefs */
-#include "constants.h" /* various global vals */
-#include "parse_opts.h" /* parse_opts */
-#include "validate.h" /* is_valid_level, get_level_info */
-#include "utils.h" /* show_usage */
+#include "typedefs.h" 		/* struct typedefs */
+#include "constants.h" 		/* various global vals */
+#include "parse_opts.h" 	/* parse_opts */
+#include "utils.h" 			/* show_usage */
+#include "data_utils.h" 	/* validate_and_setup_level */
+#include "ssh_connect.h" 	/* ssh_connect */
+#include "messages.h" 		/* ERR_BAD_LEVEL_ARG */
 
 int
 main(int argc, char **argv)
 {
-	arg_t split_arg;
 	level_t level;
 
-	if (argc < 2) {
-		show_usage();
-		exit(EXIT_FAILURE);
-	}
+	if (argc < 2) show_usage();
 
-	/* Handle CLI options and parse level into name and number */
-	parse_opts(argc, argv, &split_arg);
+	/* Handle command line options */
+	parse_opts(argc, argv, &level);
 
-	/* Ensure the level argument is valid */
-	if (!is_valid_level(&split_arg)) {
-		show_usage();
-		exit(EXIT_FAILURE);
-	}
+	/* Validate user provided level */
+	if (is_valid_level(&level) != 0) quit(ERR_BAD_LEVEL_ARG);
 
-	/* Load level-specific connection info into level */
-	get_level_info(&split_arg, &level);
+	/* Load level info */
+	setup_level(&level);
 
+	/* Connect to level */
 	//ssh_connect(&level);
 	puts("ssh_connect is called here.");
 

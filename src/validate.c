@@ -6,56 +6,55 @@
 
 #include "constants.h"
 #include "typedefs.h"
+#include "messages.h"
+#include "utils.h"
+
+#include "data_utils.h"
 
 const game_t games[NUM_GAMES] = {
-	{"bandit", 0, BANDIT_MAX_LEVEL},
-	{"natas", 0, BANDIT_MAX_LEVEL},
-	{"leviathan", 0, BANDIT_MAX_LEVEL},
-	{"krypton", 0, BANDIT_MAX_LEVEL},
-	{"narnia", 0, BANDIT_MAX_LEVEL},
-	{"behemoth", 0, BANDIT_MAX_LEVEL},
-	{"utumno", 0, BANDIT_MAX_LEVEL},
-	{"maze", 0, BANDIT_MAX_LEVEL},
-	{"vortex", 0, BANDIT_MAX_LEVEL},
-	{"manpage", 0, BANDIT_MAX_LEVEL},
-	{"drifter", 0, BANDIT_MAX_LEVEL},
-	{"formulaone", 0, BANDIT_MAX_LEVEL}
+	{"bandit", 		BANDIT_PORT, 	BANDIT_MAX_LEVEL, 		0},
+	{"natas", 		0, 				NATAS_MAX_LEVEL, 		0},
+	{"leviathan", 	LEVIATHAN_PORT, LEVIATHAN_MAX_LEVEL, 	0},
+	{"krypton", 	KRYPTON_PORT, 	KRYPTON_MAX_LEVEL, 		0},
+	{"narnia", 		NARNIA_PORT, 	NARNIA_MAX_LEVEL, 		0},
+	{"behemoth", 	BEHEMOTH_PORT, 	BEHEMOTH_MAX_LEVEL, 	0},
+	{"utumno", 		UTUMNO_PORT, 	UTUMNO_MAX_LEVEL, 		0},
+	{"maze", 		MAZE_PORT, 		MAZE_MAX_LEVEL, 		0},
+	{"vortex", 		VORTEX_PORT, 	VORTEX_MAX_LEVEL, 		0},
+	{"manpage", 	MANPAGE_PORT, 	MANPAGE_MAX_LEVEL, 		0},
+	{"drifter", 	DRIFTER_PORT, 	DRIFTER_MAX_LEVEL, 		0},
+	{"formulaone", 	FORMULAONE_PORT, FORMULAONE_MAX_LEVEL, 	0}
 };
 
-int is_valid_levelname(char *level_name)
-{
-	printf("%s == test\n", level_name);
-	return 1;
-}
-
-int is_valid_levelnum(int level_num)
-{
-	level_num = 12;
-	printf("%d == test\n", level_num);
-	return 1;
-}
-
 int
-is_valid_level(arg_t *split_arg)
+is_valid_level(level_t *level)
 {
-	/* Returns 1 for a valid level, else returns 0 */
-	if (!is_valid_levelname(split_arg->level_name)) {
-		puts("Invalid level name.");
-		return 0;
-	}
-	if (!is_valid_levelnum(split_arg->level_num)) {
-		puts("Invalid level number.");
-		return 0;
-	}
-	return 1;
-}
+	int ret, idx;
 
-int
-get_level_info(arg_t *split_arg, level_t *level)
-{
-	memcpy(level->level_name, split_arg->level_name, LVLNAME_MAX);
-	/* Ensure that the level name is a null terminated string */
-	level->level_name[LVLNAME_MAX - 1] = '\0';
-	level->level_num = split_arg->level_num;
+	/* Split the level argument into name and number parts */
+	ret = sscanf(level->level_name, SCAN_FMTSTR,
+				level->game_name, &level->level_num);
+	
+	if (ret != 2) quit(ERR_BAD_LEVEL_ARG);
+
+	/* Validate level name */
+	idx = -1;
+	for (int i = 0; i < NUM_GAMES; i++) {
+		if (strcmp(games[i].game_name, level->game_name) == 0) {
+			idx = i;
+			break;
+		}
+	}
+
+	if (idx == -1) quit(ERR_BAD_LEVEL_ARG);
+
+	/* Validate level number for chosen game */
+	if (!(level->level_num >= 0) || !(level->level_num <= games[idx].max_level)) {
+		quit(ERR_BAD_LEVEL_ARG);
+	}
+
+	level->is_completed = games[idx].is_completed;
+	level->port = games[idx].port;
+
 	return 0;
 }

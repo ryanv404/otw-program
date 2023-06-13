@@ -1,21 +1,23 @@
 #include "ssh_connect.h"
-#include <libssh2.h>
-
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <libssh2.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-static const char *pubkey  = ".ssh/id_rsa.pub";
-static const char *privkey = ".ssh/id_rsa";
+#include "typedefs.h"
+
+static const char *pubkey  = ".ssh/id_ed25519.pub";
+static const char *privkey = ".ssh/id_ed25519";
+static const char *knownhosts = ".ssh/known_hosts";
 
 int
-ssh_connect(char *host, uint16_t port, char *username, char *pw)
+ssh_connect(level_t *level)
 {
     int i, rc;
     uint32_t hostaddr;

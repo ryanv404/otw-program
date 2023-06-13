@@ -3,6 +3,6 @@
 
 #include "typedefs.h"
 
-int parse_opts(int argcount, char **args, arg_t *split_arg);
+int parse_opts(int argcount, char **args, level_t *level);
 
 #endif /* _MY_PARSE_OPTS_H */

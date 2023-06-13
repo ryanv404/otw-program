@@ -29,9 +29,10 @@
 
 #define DEFAULT_PROGNAME 	"otw"
 #define USAGE_MSG  			"Usage: otw [-h] [-d] [-c LEVEL] [-s PASSWORD LEVEL]\n"	\
-							"       otw LEVEL\n\nUse `otw -h` for more help.\n"
+							"       otw LEVEL\n\nUse `otw -h` for more help."
 #define ERR_FOPEN_INPUT  	"fopen(input, r)"
 #define ERR_FOPEN_OUTPUT 	"fopen(output, w)"
 #define ERR_DO_THE_NEEDFUL 	"do_the_needful blew up"
+#define ERR_BAD_LEVEL_ARG	"Invalid level argument"
 
 #endif /* _MY_MESSAGES_H */

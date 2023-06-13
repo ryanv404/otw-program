@@ -2,8 +2,8 @@ CC       := gcc
 SRCDIR   := src
 BUILDDIR := build
 TARGET   := otw
-SRCEXT   := c
 SOURCES  := $(shell find $(SRCDIR) -type f -name "*.c")
+SOURCES  := $(filter-out $(SRCDIR)/ssh_connect.c, $(SOURCES))
 OBJECTS  := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.c=.o))
 CFLAGS   := -Wall -Wextra -Wpedantic -Werror -g
 INC      := -Iinclude

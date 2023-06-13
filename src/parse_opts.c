@@ -1,8 +1,9 @@
 #include "parse_opts.h"
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE /* getopt_long */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -12,60 +13,74 @@
 #include "data_utils.h"
 #include "progress.h"
 
-#define OPTSTR		":c:dhs:"
+extern char *optarg;
+extern int optind, optopt;
 
 int
-parse_opts(int argcount, char **args, arg_t *split_arg)
+parse_opts(int argcount, char **args, level_t *level)
 {
-	int opt, nargs;
-	const char *short_opts = OPTSTR;
-	struct option long_opts[] = {
-		{"help",	 no_argument, 			NULL, 	'h'},
-		{"display",  no_argument, 			NULL, 	'd'},
-		{"complete", required_argument, 	NULL, 	'c'},
-		{"store", 	 required_argument, 	NULL, 	's'},
-		{NULL, 		 0, 					NULL, 	0}
-	};
+	int c, nargs;
+	const char *optstr = OPTSTR;
 
 	while (1) {
-		opt = getopt_long(argcount, args, short_opts, long_opts, NULL);
-		/* Process all command line options */
-		if (opt == -1) break;
+		static struct option longopts[] = {
+			{"help",	 no_argument, 		0, 	'h'},
+			{"display",  no_argument, 		0, 	'd'},
+			{"complete", required_argument, 0, 	'c'},
+			{"store", 	 required_argument, 0, 	's'},
+			{0, 0, 0, 0}
+		};
 
-		switch (opt) {
-		case 'h':
-			/* Display the help message */
-			show_help();
-			break;
-		case 'd':
-			/* Display the user's progress */
-			show_progress();
-			break;
+		c = getopt_long(argcount, args, optstr, longopts, NULL);
+		
+		/* Detect the end of the provided options */
+		if (c == -1) break;
+
+		switch (c) {
 		case 'c':
 			/* Mark a level as completed */
 			mark_level_complete(optarg);
 			break;
+		
+		case 'd':
+			/* Display the user's progress */
+			show_progress();
+			break;
+
+		case 'h':
+			/* Display the help message */
+			show_help();
+			break;
+
 		case 's':
 			/* Store the level's password */
-			store_pw(optarg, args[argcount - 1]);
+			memcpy(level->level_name, args[argcount - 1], LVLNAME_MAX);
+			memcpy(level->pw, optarg, LVLPW_MAX);
+			level->level_name[LVLNAME_MAX - 1] = '\0';
+			level->pw[LVLPW_MAX - 1] = '\0';
+			store_pw(level);
 			break;
+
 		case ':':
 			fprintf(stderr, "Option -%c is missing a required argument.\n\n", (char) optopt);
 			show_usage();
 			break;
+
+		case '?':
 		default:
 			quit("Unknown option");
 		}
 	}
 
-	/* Only the level argument should follow the options */
+	/* Only 1 argument should remain: the level argument */
 	nargs = argcount - optind;
 	if (nargs != 1) {
-		quit("Did not receive the correct number of arguments");
+		quit("Did not receive valid input");
 	}
 
-	/* Split the remaining argument into name and number parts */
-	sscanf(args[optind], "%[a-zA-Z]%d", split_arg->level_name, &split_arg->level_num);
+	/* Ensure that the level_name field contains a null terminated string */
+	memcpy(level->level_name, args[optind], LVLNAME_MAX);
+	level->level_name[LVLNAME_MAX - 1] = '\0';
 
 	return 0;
 }
