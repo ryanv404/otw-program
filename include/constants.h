@@ -1,19 +1,19 @@
 #ifndef _MY_CONSTANTS_H
 #define _MY_CONSTANTS_H
 
-#define NUM_LEVELS      183
 #define CSV_DATAFILE    "data/leveldata.csv"
 #define DATAFILE        "data/leveldata.dat"
 #define TEMP_DATAFILE   DATAFILE    "~"
+
 #define NUM_GAMES		12
 #define NUM_LEVELS		183
 
-/* Longest level name is 'formulaone6\0' (12 characters) */
+/* Longest name is 'formulaone6\0' (12 characters) */
 #define LVLNAME_MAX		24
-/* Longest ssh address is 'formulaone6@formulaone.labs.overthewire.org\0' (44 characters) */
+/* Longest address is 'formulaone6@formulaone.labs.overthewire.org\0' (44 characters) */
 #define LVLADDR_MAX		52
 /* Unclear what the max length should be */
-#define LVLPASS_MAX		100
+#define LVLPASS_MAX		52
 
 /* Highest level available for each game */
 #define BANDIT_MAX			34
@@ -42,9 +42,7 @@
 #define DRIFTER_PORT		2230
 #define FORMULAONE_PORT		2223
 
-/* Reads 1 less than LVLNAME_MAX non-digit chars and an int */
-#define SCAN_FMTSTR		"%23[^0-9]%d"
-#define OPTSTR		":c:dhs:"
+#define OPTSTR			":c:dhs:"
 
 #endif /* _MY_CONSTANTS_H */
 

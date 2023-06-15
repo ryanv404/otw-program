@@ -9,6 +9,7 @@
 
 #include "constants.h"
 #include "typedefs.h"
+#include "messages.h"
 #include "utils.h"
 #include "datautils.h"
 #include "progress.h"
@@ -19,19 +20,18 @@ extern int optind, optopt;
 int
 parse_opts(int argcount, char **args, level_t *level, level_t **levelinfo)
 {
-	int c, nargs;
-	const char *optstr = OPTSTR;
+	int c, nargs, namelen;
 
 	while (1) {
 		static struct option longopts[] = {
 			{"help",	 no_argument, 		0, 	'h'},
-			{"display",  no_argument, 		0, 	'd'},
+			{"progress", no_argument, 		0, 	'p'},
 			{"complete", required_argument, 0, 	'c'},
 			{"store", 	 required_argument, 0, 	's'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argcount, args, optstr, longopts, NULL);
+		c = getopt_long(argcount, args, OPTSTR, longopts, NULL);
 		
 		/* Detect the end of the provided options */
 		if (c == -1) break;
@@ -42,45 +42,48 @@ parse_opts(int argcount, char **args, level_t *level, level_t **levelinfo)
 			mark_level_complete(optarg);
 			break;
 		
-		case 'd':
+		case 'h':
+			/* Display the help message */
+			show_help();
+			exit(EXIT_SUCCESS);
+			break;
+
+		case 'p':
 			/* Display the user's progress */
 			show_progress();
 			break;
 
-		case 'h':
-			/* Display the help message */
-			show_help();
-			break;
-
 		case 's':
 			/* Store the level's password */
-			printf("optind: %d, argc: %d\n", optind, argc);
-			memcpy(level->levelname, args[argcount - 1], LVLNAME_MAX);
-			memcpy(level->pass, optarg, LVLPASS_MAX);
-			level->levelname[LVLNAME_MAX - 1] = '\0';
-			level->pass[LVLPASS_MAX - 1] = '\0';
-			store_pass(level, levelinfo);
+			printf("optind: %d, argc: %d\n", optind, argcount);
+			printf("argv[optind]: %s, argv[argc-1]: %s, optarg: %s\n", args[optind], args[argcount-1], optarg);
+
+			store_pass(optarg, args[argcount - 1], level, levelinfo);
 			break;
 
 		case ':':
-			fprintf(stderr, "Option -%c is missing a required argument.\n\n", (char) optopt);
+			fprintf(stderr, ERR_MISSING_OPTARG, (char) optopt);
 			show_usage();
+			exit(EXIT_FAILURE);
 			break;
 
 		case '?':
 		default:
-			quit("Unknown option");
+			quit("[Error] unknown option.\n");
 		}
 	}
 
 	/* Only 1 argument should remain: the level argument */
 	nargs = argcount - optind;
 	if (nargs != 1) {
-		quit("Did not receive valid input");
+		quit(ERR_BAD_LEVEL_ARG);
 	}
 
-	/* Ensure that the levelname field contains a null terminated string */
-	memcpy(level->levelname, args[optind], LVLNAME_MAX);
+	namelen = (int) strlen(args[optind]) + 1;
+	namelen = (namelen > LVLNAME_MAX) ? LVLNAME_MAX : namelen;
+	memcpy(level->levelname, args[optind], namelen);
+
+	/* Ensure final byte of buffer is a null byte */
 	level->levelname[LVLNAME_MAX - 1] = '\0';
 
 	return 0;

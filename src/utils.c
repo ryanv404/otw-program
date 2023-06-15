@@ -7,24 +7,26 @@
 #include "constants.h"
 #include "messages.h"
 
-int
+void
 show_usage(void)
 {
-	puts(USAGE_MSG);
-	exit(EXIT_FAILURE);
+	fprintf(stderr, USAGE_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
+			DEFAULT_PROGNAME);
+	return;
 }
 
-int
+void
 show_help(void)
 {
-	puts(HELP_MSG);
-	exit(EXIT_SUCCESS);
+	fprintf(stdout, HELP_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
+			DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME);
+	return;
 }
 
 int
 quit(char *msg)
 {
-	fprintf(stderr, "[Error] %s.\n", msg);
+	fprintf(stderr, "%s", msg);
 	exit(EXIT_FAILURE);
 }
 
@@ -41,8 +43,8 @@ print_level(level_t *level)
 	printf("port.......................%d\n", level->port);
 	printf("maxlevel...................%d\n", level->maxlevel);
 	printf("is_level_completed.........%d\n", level->is_level_completed);
-	printf("is_game_completed..........%d\n\n", level->is_game_completed);
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("is_game_completed..........%d\n", level->is_game_completed);
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n\n");
 	return;
 }
 
@@ -60,8 +62,8 @@ print_leveldata(level_t **leveldata)
 		printf("port.......................%d\n", leveldata[i]->port);
 		printf("maxlevel...................%d\n", leveldata[i]->maxlevel);
 		printf("is_level_completed.........%d\n", leveldata[i]->is_level_completed);
-		printf("is_game_completed..........%d\n\n", leveldata[i]->is_game_completed);
-		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+		printf("is_game_completed..........%d\n", leveldata[i]->is_game_completed);
+		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n\n");
 	}
 	return;
 }

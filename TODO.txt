@@ -1,38 +1,5 @@
-MAIN.C
-[x] check argc > 1;
-[x] parse_opts(int argcount, char **args, level_t *level);
-[x] is_valid_level(level_t *level);
-[x] get_level_info(level_t *level);
-[_] connect_to_game(level_t *level);
-
-PARSE_OPTS.C
-[x] parse_opts(int argcount, char **args);
-
-TYPEDEFS.H
-typedef struct game_t game_t;
-typedef struct savedgame_t savedgame_t;
-typedef struct GameTable_t GameTable_t
-typedef struct arg_t arg_t;
-typedef struct level_t level_t;
-typedef struct savedlevel_t savedlevel_t;
-typedef struct LinkedList_t LinkedList_t;
-
-VALIDATE.C
-[x] is_valid_level(level_t *level);
-
 SSH_CONNECT.C
 [_] connect_to_game(level_t *level);
-
-DATA_UTILS.C
-[x] store_pw(level_t *level);
-[x] setup_level(level_t *level);
-
-UTILS.C
-[x] show_usage(void);
-[x] show_help(void);
-[x] get_timestamp(char *buf, int bufsize);
-[x] print_game(game_t *game);
-[x] print_level(level_t *level);
 
 PROGRESS.C
 [_] mark_level_complete(char *level);

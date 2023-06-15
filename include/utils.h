@@ -4,8 +4,8 @@
 #include "typedefs.h"
 
 int quit(char *msg);
-int show_usage(void);
-int show_help(void);
+void show_usage(void);
+void show_help(void);
 void print_leveldata(level_t **level);
 void print_level(level_t *level);
 

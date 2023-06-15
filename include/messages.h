@@ -1,38 +1,44 @@
 #ifndef _MY_MESSAGES_H
 #define _MY_MESSAGES_H
 
+#define DEFAULT_PROGNAME 	"otw"
+
+/* Error messages */
+#define ERR_BAD_LEVEL_ARG	"[Error] invalid level argument."
+#define ERR_MISSING_OPTARG 	"[Error] option -%c is missing a required argument.\n\n"
+#define ERR_BAD_MALLOC		"[Error] memory allocation error.\n"
+
+/* Usage/help messages */
+#define USAGE_MSG																\
+	"usage: %s LEVEL\n"															\
+	"       %s [-h] [-p] [-c LEVEL]\n"											\
+	"       %s -s PASSWORD LEVEL\n\n"											\
+	"Use `%s -h` for more help.\n"
 #define HELP_MSG																\
-	"Usage: otw LEVEL\n" 														\
-	"       otw [-h|-d]\n" 														\
-	"       otw -s PASSWORD LEVEL\n"											\
-	"       otw -c LEVEL\n"														\
+	"usage: %s LEVEL\n" 														\
+	"       %s [-h|-p] [-c LEVEL]\n"											\
+	"       %s -s PASSWORD LEVEL\n"												\
 	"\n" 																		\
-	"Connect to the OTW wargame LEVEL.\n"										\
+	"Connect to the OTW wargame LEVEL with `%s LEVEL`.\n"						\
 	"\n" 																		\
 	"    LEVEL\n"		 														\
 	"        A single word composed of the wargame's name (e.g. \"bandit\")\n"	\
 	"        and the level number (e.g. \"2\").\n"								\
-	"        For example, `otw bandit2`, `otw vortex12`, etc.\n"				\
+	"        For example, `%s bandit2`, `%s vortex12`, etc.\n"					\
 	"\n" 																		\
 	"    -c, --complete LEVEL\n"												\
-	"        Mark level LEVEL as complete.\n"									\
-	"\n" 																		\
-	"    -d, --display\n"														\
-	"        Display user's progress in completing all of the OTW wargames.\n"	\
+	"        Mark the level LEVEL as complete. Note: storing a password for a\n"\
+	"        level automatically marks it as complete too.\n"					\
 	"\n" 																		\
 	"    -h, --help\n" 															\
 	"        Show this help information.\n"										\
 	"\n" 																		\
-	"    -s, --store PASSWORD\n"												\
-	"        Store password PASSWORD for level LEVEL in the local database\n"	\
-	"        to make connecting to the level quicker.\n"
-
-#define DEFAULT_PROGNAME 	"otw"
-#define USAGE_MSG  			"Usage: otw [-h] [-d] [-c LEVEL] [-s PASSWORD LEVEL]\n"	\
-							"       otw LEVEL\n\nUse `otw -h` for more help."
-#define ERR_FOPEN_INPUT  	"fopen(input, r)"
-#define ERR_FOPEN_OUTPUT 	"fopen(output, w)"
-#define ERR_DO_THE_NEEDFUL 	"do_the_needful blew up"
-#define ERR_BAD_LEVEL_ARG	"Invalid level argument"
+	"    -p, --progress\n"														\
+	"        Display which wargames you've completed and your overall progress.\n"	\
+	"\n" 																		\
+	"    -s, --store PASSWORD LEVEL\n"											\
+	"        Store password PASSWORD for the level LEVEL in a local file to\n"	\
+	"        make connecting to the level more convenient. Note: this will also\n"	\
+	"        mark LEVEL as complete.\n"
 
 #endif /* _MY_MESSAGES_H */

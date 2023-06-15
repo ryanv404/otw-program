@@ -9,16 +9,38 @@
 #include "validate.h"
 #include "messages.h"
 #include "utils.h"
+#include "progress.h"
 
 int
-store_pass(level_t *level, level_t **leveldata)
+store_pass(char *pass, char *levelname, level_t *level, level_t **leveldata)
 {
-    /* Validate user provided level */
-    if (is_valid_level(level, leveldata) != 0) quit(ERR_BAD_LEVEL_ARG);
+	int namelen, passlen;
 
-    /* Store the pw */
-    printf("Successfully stored password for %s.", level->levelname);
-    exit(EXIT_SUCCESS);
+	namelen = (int) strlen(levelname) + 1;
+	passlen = (int) strlen(pass) + 1;
+	namelen = (namelen > LVLNAME_MAX) ? LVLNAME_MAX : namelen;
+	passlen = (passlen > LVLPASS_MAX) ? LVLPASS_MAX : passlen;
+
+	printf("namelen: %d, passlen: %d\n", namelen, passlen);
+	memcpy(level->levelname, levelname, namelen);
+	memcpy(level->pass, pass, passlen);
+	
+	/* Ensure final byte of buffer is a null byte */
+	level->levelname[LVLNAME_MAX - 1] = '\0';
+	level->pass[LVLPASS_MAX - 1] = '\0';
+
+	/* Validate user provided level */
+	if (is_valid_level(level, leveldata) != 0) {
+		quit(ERR_BAD_LEVEL_ARG);
+	}
+
+	/* Write pw to data file and mark level as complete */
+	mark_level_complete(level->levelname);
+
+	printf("Successfully stored password for %s.", level->levelname);
+	print_level(level);
+
+	exit(EXIT_SUCCESS);
 }
 
 level_t **
@@ -27,14 +49,14 @@ load_saved_data(void)
 	level_t **levels = (level_t **) calloc(NUM_LEVELS, sizeof(level_t *));
 
 	if (levels == NULL) {
-		fprintf(stderr, "Memory allocation error.\n");
+		fprintf(stderr, ERR_BAD_MALLOC);
 		exit(EXIT_FAILURE);
 	}
 
 	for (int i = 0; i < NUM_LEVELS; i++) {
 		levels[i] = (level_t *) malloc(sizeof(level_t));
 		if (levels[i] == NULL) {
-			fprintf(stderr, "Memory allocation error.\n");
+			fprintf(stderr, ERR_BAD_MALLOC);
 			exit(EXIT_FAILURE);
 		}
 	}
