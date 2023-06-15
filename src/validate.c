@@ -6,55 +6,20 @@
 
 #include "constants.h"
 #include "typedefs.h"
-#include "messages.h"
-#include "utils.h"
-
-#include "data_utils.h"
-
-const game_t games[NUM_GAMES] = {
-	{"bandit", 		BANDIT_PORT, 	BANDIT_MAX_LEVEL, 		0},
-	{"natas", 		0, 				NATAS_MAX_LEVEL, 		0},
-	{"leviathan", 	LEVIATHAN_PORT, LEVIATHAN_MAX_LEVEL, 	0},
-	{"krypton", 	KRYPTON_PORT, 	KRYPTON_MAX_LEVEL, 		0},
-	{"narnia", 		NARNIA_PORT, 	NARNIA_MAX_LEVEL, 		0},
-	{"behemoth", 	BEHEMOTH_PORT, 	BEHEMOTH_MAX_LEVEL, 	0},
-	{"utumno", 		UTUMNO_PORT, 	UTUMNO_MAX_LEVEL, 		0},
-	{"maze", 		MAZE_PORT, 		MAZE_MAX_LEVEL, 		0},
-	{"vortex", 		VORTEX_PORT, 	VORTEX_MAX_LEVEL, 		0},
-	{"manpage", 	MANPAGE_PORT, 	MANPAGE_MAX_LEVEL, 		0},
-	{"drifter", 	DRIFTER_PORT, 	DRIFTER_MAX_LEVEL, 		0},
-	{"formulaone", 	FORMULAONE_PORT, FORMULAONE_MAX_LEVEL, 	0}
-};
+#include "datautils.h"
 
 int
-is_valid_level(level_t *level)
+is_valid_level(level_t *level, level_t **leveldata)
 {
-	int ret, idx;
-
-	/* Split the level argument into name and number parts */
-	ret = sscanf(level->level_name, SCAN_FMTSTR,
-				level->game_name, &level->level_num);
-	
-	if (ret != 2) quit(ERR_BAD_LEVEL_ARG);
-
-	/* Validate level name */
-	idx = -1;
-	for (int i = 0; i < NUM_GAMES; i++) {
-		if (strcmp(games[i].game_name, level->game_name) == 0) {
-			idx = i;
-			break;
+	/* Validate user provided level argument */
+	for (int i = 0; i < NUM_LEVELS; i++) {
+		if (strncmp(leveldata[i]->levelname, level->levelname, LVLNAME_MAX) == 0) {
+			/* Level arg has been validated; copy saved data for this level into the remaining fields */
+			memcpy(level, leveldata[idx]);
+			free_levels(leveldata);
+			return 0;
 		}
 	}
-
-	if (idx == -1) quit(ERR_BAD_LEVEL_ARG);
-
-	/* Validate level number for chosen game */
-	if (!(level->level_num >= 0) || !(level->level_num <= games[idx].max_level)) {
-		quit(ERR_BAD_LEVEL_ARG);
-	}
-
-	level->is_completed = games[idx].is_completed;
-	level->port = games[idx].port;
-
-	return 0;
+	free_levels(leveldata);
+	return 1;
 }

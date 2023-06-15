@@ -1,11 +1,7 @@
 #include "utils.h"
 
-#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <string.h>
 
 #include "typedefs.h"
 #include "constants.h"
@@ -32,49 +28,40 @@ quit(char *msg)
 	exit(EXIT_FAILURE);
 }
 
-int
-get_timestamp(char *buf, int bufsize)
-{
-	/* Return string representation of epoch time in buf */
-	time_t result;
-	char tstamp[32];
-
-	if ((buf == NULL) || (bufsize < 1)) {
-		fprintf(stderr, "[Error] Bad input to getTimestamp.\n");
-		return 1;
-	}
-	if((result = time(NULL)) == (time_t)(-1)) {
-		fprintf(stderr, "[Error] Could not get timestamp.\n");
-		return 1;
-	}
-	sprintf(tstamp, "%jd", (intmax_t) result);
-	strncpy(buf, tstamp, bufsize);
-	return 0;
-}
-
-int
+void
 print_level(level_t *level)
 {
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	printf("Level info:\n");
-	printf("level_name........%s\n", level->level_name);
-	printf("game_name.........%s\n", level->game_name);
-	printf("level_num.........%d\n", level->level_num);
-	printf("ssh_addr..........%s\n", level->ssh_addr);
-	printf("port..............%d\n", level->port);
-	printf("pw................%s\n", level->pw);
-	printf("is_completed......%d\n\n", level->is_completed);
-
-	return 0;
+	printf("levelname..................%s\n", level->levelname);
+	printf("gamename...................%s\n", level->gamename);
+	printf("pass.......................%s\n", level->pass);
+	printf("is_pass_saved..............%d\n", level->is_pass_saved);
+	printf("hostaddr...................%s\n", level->hostaddr);
+	printf("port.......................%d\n", level->port);
+	printf("maxlevel...................%d\n", level->maxlevel);
+	printf("is_level_completed.........%d\n", level->is_level_completed);
+	printf("is_game_completed..........%d\n\n", level->is_game_completed);
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	return;
 }
 
-int
-print_game(game_t *game)
+void
+print_leveldata(level_t **leveldata)
 {
-	printf("Game info:\n");
-	printf("game_name..........%s\n", game->game_name);
-	printf("max_level..........%d\n", game->max_level);
-	printf("port...............%d\n", game->port);
-	printf("is_completed.......%d\n\n", game->is_completed);
-
-	return 0;
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	for (int i = 0; i < NUM_LEVELS; i++) {
+		printf("Level %d:\n", i);
+		printf("levelname..................%s\n", leveldata[i]->levelname);
+		printf("gamename...................%s\n", leveldata[i]->gamename);
+		printf("pass.......................%s\n", leveldata[i]->pass);
+		printf("is_pass_saved..............%d\n", leveldata[i]->is_pass_saved);
+		printf("hostaddr...................%s\n", leveldata[i]->hostaddr);
+		printf("port.......................%d\n", leveldata[i]->port);
+		printf("maxlevel...................%d\n", leveldata[i]->maxlevel);
+		printf("is_level_completed.........%d\n", leveldata[i]->is_level_completed);
+		printf("is_game_completed..........%d\n\n", leveldata[i]->is_game_completed);
+		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	}
+	return;
 }

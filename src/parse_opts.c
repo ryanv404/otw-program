@@ -10,14 +10,14 @@
 #include "constants.h"
 #include "typedefs.h"
 #include "utils.h"
-#include "data_utils.h"
+#include "datautils.h"
 #include "progress.h"
 
 extern char *optarg;
 extern int optind, optopt;
 
 int
-parse_opts(int argcount, char **args, level_t *level)
+parse_opts(int argcount, char **args, level_t *level, level_t **levelinfo)
 {
 	int c, nargs;
 	const char *optstr = OPTSTR;
@@ -54,11 +54,12 @@ parse_opts(int argcount, char **args, level_t *level)
 
 		case 's':
 			/* Store the level's password */
-			memcpy(level->level_name, args[argcount - 1], LVLNAME_MAX);
-			memcpy(level->pw, optarg, LVLPW_MAX);
-			level->level_name[LVLNAME_MAX - 1] = '\0';
-			level->pw[LVLPW_MAX - 1] = '\0';
-			store_pw(level);
+			printf("optind: %d, argc: %d\n", optind, argc);
+			memcpy(level->levelname, args[argcount - 1], LVLNAME_MAX);
+			memcpy(level->pass, optarg, LVLPASS_MAX);
+			level->levelname[LVLNAME_MAX - 1] = '\0';
+			level->pass[LVLPASS_MAX - 1] = '\0';
+			store_pass(level, levelinfo);
 			break;
 
 		case ':':
@@ -78,9 +79,9 @@ parse_opts(int argcount, char **args, level_t *level)
 		quit("Did not receive valid input");
 	}
 
-	/* Ensure that the level_name field contains a null terminated string */
-	memcpy(level->level_name, args[optind], LVLNAME_MAX);
-	level->level_name[LVLNAME_MAX - 1] = '\0';
+	/* Ensure that the levelname field contains a null terminated string */
+	memcpy(level->levelname, args[optind], LVLNAME_MAX);
+	level->levelname[LVLNAME_MAX - 1] = '\0';
 
 	return 0;
 }

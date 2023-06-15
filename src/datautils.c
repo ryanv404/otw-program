@@ -1,3 +1,5 @@
+#include "datautils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,30 +7,21 @@
 #include "typedefs.h"
 #include "constants.h"
 #include "validate.h"
-
-void
-setup_level(level_t *level, level_t **leveldata)
-{
-
-
-	return;
-}
+#include "messages.h"
+#include "utils.h"
 
 int
-store_pw(level_t *level)
+store_pass(level_t *level, level_t **leveldata)
 {
     /* Validate user provided level */
-    if (is_valid_level(level) != 0) quit(ERR_BAD_LEVEL_ARG);
-
-    /* Load level info */
-    setup_level(level);
+    if (is_valid_level(level, leveldata) != 0) quit(ERR_BAD_LEVEL_ARG);
 
     /* Store the pw */
-    puts("Successfully stored password for %s.", level->levelname);
+    printf("Successfully stored password for %s.", level->levelname);
     exit(EXIT_SUCCESS);
 }
 
-void
+level_t **
 load_saved_data(void)
 {
 	level_t **levels = (level_t **) calloc(NUM_LEVELS, sizeof(level_t *));
@@ -123,22 +116,23 @@ create_new_datafile(void)
 		fgets(inbuf, 256, infile);
 
 		tok = strtok(inbuf, ",");
-		strncpy(levels[i].levelname, tok, 32);
+		strncpy(levels[i].levelname, tok, LVLNAME_MAX);
 
 		tok = strtok(NULL, ",\n");
-		strncpy(levels[i].pass, tok, 32);
-
-		levels[i].is_level_completed = atoi(strtok(NULL, ",\n"));
+		strncpy(levels[i].gamename, tok, LVLNAME_MAX);
 
 		tok = strtok(NULL, ",\n");
-		strncpy(levels[i].gamename, tok, 32);
+		strncpy(levels[i].pass, tok, LVLPASS_MAX);
+
+		levels[i].is_pass_saved = atoi(strtok(NULL, ",\n"));
+
+		tok = strtok(NULL, ",\n");
+		strncpy(levels[i].hostaddr, tok, LVLADDR_MAX);
 
 		levels[i].port = atoi(strtok(NULL, ",\n"));
 		levels[i].maxlevel = atoi(strtok(NULL, ",\n"));
+		levels[i].is_level_completed = atoi(strtok(NULL, ",\n"));
 		levels[i].is_game_completed = atoi(strtok(NULL, ",\n"));
-
-		tok = strtok(NULL, ",\n");
-		strncpy(levels[i].hostaddr, tok, 52);
 	}
 
 	for (int i = 0; i < NUM_LEVELS; i++) {
