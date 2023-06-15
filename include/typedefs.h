@@ -3,30 +3,29 @@
 
 #include "constants.h"
 
-typedef struct arg_t {
-	char	level_name[LVLNAME_MAX];
-	int		level_num;
-} arg_t;
+#define NUM_LEVELS      183
+#define CSV_DATAFILE    "data/leveldata.csv"
+#define DATAFILE        "data/leveldata.dat"
+#define TEMP_DATAFILE   DATAFILE    "~"
+
+
+
+void read_datafile(level_t **levels);
+void write_to_datafile(level_t **levels);
+void create_new_datafile(void);
+void free_levels(level_t **levels);
+level_t **load_saved_data(void);
+
 
 typedef struct level_t {
-	char	name[LVLNAME_MAX];
-	int		number;
-	char	ssh_addr[LVLADDR_MAX];
-	char	pw[LVLPW_MAX];
-	int		is_completed;
+    char levelname[LVLNAME_MAX];
+    char pass[LVLPASS_MAX];
+    int is_level_completed;
+    char gamename[LVLNAME_MAX];
+    int port;
+    int maxlevel;
+    int is_game_completed;
+    char hostaddr[LVLADDR_MAX];
 } level_t;
-
-typedef struct game_t {
-	char		name[LVLNAME_MAX];
-	int			max_level;
-	int			port;
-	int 	 	is_completed;
-	level_t		**levels;
-} game_t;
-
-typedef struct GameTable_t {
-	int			size;
-	game_t		**games;
-} GameTable_t;
 
 #endif /* _MY_TYPEDEFS_H */

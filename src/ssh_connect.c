@@ -12,12 +12,12 @@
 
 #include "typedefs.h"
 
-static const char *pubkey  = ".ssh/id_ed25519.pub";
-static const char *privkey = ".ssh/id_ed25519";
-static const char *knownhosts = ".ssh/known_hosts";
+const char *pubkey  = ".ssh/id_ed25519.pub";
+const char *privkey = ".ssh/id_ed25519";
+const char *knownhosts = ".ssh/known_hosts";
 
 int
-ssh_connect(level_t *level)
+connect_to_game(level_t *level)
 {
     int i, rc;
     uint32_t hostaddr;
