@@ -29,7 +29,7 @@ make
 
 ## Usage
 
-```
+```bash
 Usage: otw LEVEL
        otw [-h|-p] [-c LEVEL]
        otw -s PASSWORD LEVEL
