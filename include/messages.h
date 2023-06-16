@@ -29,7 +29,7 @@
 	"\n" 																		\
 	"    -c, --complete LEVEL\n"												\
 	"        Mark the level LEVEL as complete. Note: storing a password for a\n"\
-	"        level automatically marks it as complete too.\n"					\
+	"        level automatically marks the level before it complete.\n"			\
 	"\n" 																		\
 	"    -h, --help\n" 															\
 	"        Show this help information.\n"										\
@@ -40,6 +40,6 @@
 	"    -s, --store PASSWORD LEVEL\n"											\
 	"        Store password PASSWORD for the level LEVEL in a local file to\n"	\
 	"        make connecting to the level more convenient. Note: this will also\n"	\
-	"        mark LEVEL as complete.\n"
+	"        mark the level before it (where the password was obtained) complete.\n"
 
 #endif /* _MY_MESSAGES_H */

@@ -43,7 +43,7 @@ Connect to the OTW level LEVEL with `otw LEVEL`.
 
     -c, --complete LEVEL
         Mark the level LEVEL as complete. Note: storing a password for a
-        level automatically marks it as complete too.
+        level automatically marks the level before it complete.
 
     -h, --help
         Show this help information.
@@ -54,7 +54,7 @@ Connect to the OTW level LEVEL with `otw LEVEL`.
     -s, --store PASSWORD LEVEL
         Store password PASSWORD for the level LEVEL in a local file to
         make connecting to the level more convenient. Note: this will also
-        mark LEVEL as complete.
+        mark the level before it (where the password was obtained) complete.
 ```
 
 ## Examples
