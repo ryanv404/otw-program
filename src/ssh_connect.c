@@ -1,5 +1,7 @@
 /* ssh_connect.c - OTW program */
 
+#include "project/ssh_connect.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -10,9 +12,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "ssh_connect.h"
-#include "typedefs.h"
-#include "utils.h"
+#include "project/typedefs.h"
+#include "project/utils.h"
 
 const char *pubkey  = ".ssh/id_ed25519.pub";
 const char *privkey = ".ssh/id_ed25519";

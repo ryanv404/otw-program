@@ -4,7 +4,7 @@
 #define DEFAULT_PROGNAME 	"otw"
 
 /* Error messages */
-#define ERR_BAD_LEVEL_ARG	"[Error] invalid level argument."
+#define ERR_BAD_LEVEL_ARG	"[Error] invalid level argument.\n"
 #define ERR_MISSING_OPTARG 	"[Error] option -%c is missing a required argument.\n\n"
 #define ERR_BAD_MALLOC		"[Error] memory allocation error.\n"
 #define ERR_FOPEN_FAILED	"[Error] could not open the data file.\n"
@@ -40,6 +40,6 @@
 	"    -s, --store PASSWORD LEVEL\n"											\
 	"        Store password PASSWORD for the level LEVEL in a local file to\n"	\
 	"        make connecting to the level more convenient. Note: this will also\n"	\
-	"        mark the level before it (where the password was obtained) complete.\n"
+	"        mark the level before it (where the password was obtained) complete.\n\n"
 
 #endif /* _MY_MESSAGES_H */

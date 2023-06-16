@@ -1,17 +1,18 @@
 /* datautils.c - OTW program */
 
+#include "project/datautils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "datautils.h"
-#include "typedefs.h"
-#include "constants.h"
-#include "validate.h"
-#include "messages.h"
-#include "utils.h"
-#include "progress.h"
+#include "project/typedefs.h"
+#include "project/constants.h"
+#include "project/validate.h"
+#include "project/messages.h"
+#include "project/utils.h"
+#include "project/progress.h"
 
 level_t **create_new_datafile(void);
 level_t **init_data_structs(void);
@@ -19,14 +20,13 @@ level_t **init_data_structs(void);
 int
 store_pass(char *pass, char *levelname, level_t *level, level_t **leveldata)
 {
-	int namelen, passlen;
+	int namelen, passlen, idx;
 
 	namelen = (int) strlen(levelname) + 1;
 	passlen = (int) strlen(pass) + 1;
 	namelen = (namelen > LVLNAME_MAX) ? LVLNAME_MAX : namelen;
 	passlen = (passlen > LVLPASS_MAX) ? LVLPASS_MAX : passlen;
 
-	printf("namelen: %d, passlen: %d\n", namelen, passlen);
 	memcpy(level->levelname, levelname, namelen);
 	memcpy(level->pass, pass, passlen);
 	
@@ -34,19 +34,22 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **leveldata)
 	level->levelname[LVLNAME_MAX - 1] = '\0';
 	level->pass[LVLPASS_MAX - 1] = '\0';
 
-	/* Validate user provided level */
-	if (is_valid_level(level, leveldata) != 0) {
+	/* Validate user provided level; returns index of matched level in leveldata array */
+	if ((idx = is_valid_level(level, leveldata)) == -1) {
 		free(level);
 		free_levels(leveldata);
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 
-	/* Write pw to data file and mark level as complete */
-	mark_level_complete(level->levelname);
+	/* Must beat level prior to this one to get this password so mark it as complete */
+	leveldata[idx - 1]->is_level_complete = 1;
 
-	printf("[+] Successfully stored password for %s.", level->levelname);
-	print_level(level);
+	/* Write pw to data file */
+	memcpy(leveldata[idx]->pass, pass, passlen);
+	leveldata[idx]->is_pass_saved = 1;
+	save_data(leveldata);
 
+	printf("[+] Successfully stored password for %s.\n", level->levelname);
 	return 0;
 }
 
@@ -113,10 +116,9 @@ save_data(level_t **levels)
 		fwrite(levels[i], sizeof(level_t), 1, outfile);
 	}
 
-	printf("[+] Data saved.\n");
 	fclose(outfile);
-
 	rename(TEMP_DATAFILE, DATAFILE);
+
 	return;
 }
 
@@ -127,7 +129,7 @@ create_new_datafile(void)
 	char inbuf[256];
 
 	if (access(CSV_DATAFILE, F_OK) != 0) {
-		fprintf(stderr, "[Error] unable to located local data files.\n");
+		fprintf(stderr, "[Error] Unable to locate the local data files.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -160,12 +162,12 @@ create_new_datafile(void)
 
 		levels[i]->port = atoi(strtok(NULL, ",\n"));
 		levels[i]->maxlevel = atoi(strtok(NULL, ",\n"));
-		levels[i]->is_level_completed = atoi(strtok(NULL, ",\n"));
-		levels[i]->is_game_completed = atoi(strtok(NULL, ",\n"));
+		levels[i]->is_level_complete = atoi(strtok(NULL, ",\n"));
+		levels[i]->is_game_complete = atoi(strtok(NULL, ",\n"));
 	}
 
 	for (int i = 0; i < NUM_LEVELS; i++) {
-		fwrite(&levels[i], sizeof(level_t), 1, outfile);
+		fwrite(levels[i], sizeof(level_t), 1, outfile);
 	}
 
 	printf("[+] New data file created.\n");

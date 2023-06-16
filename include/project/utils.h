@@ -1,7 +1,7 @@
 #ifndef _MY_UTILS_H
 #define _MY_UTILS_H
 
-#include "typedefs.h"
+#include "project/typedefs.h"
 
 int quit(char *msg);
 void show_usage(void);

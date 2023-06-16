@@ -1,5 +1,7 @@
 /* parse_opts.c - OTW program */
 
+#include "project/parse_opts.h"
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,19 +9,18 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "parse_opts.h"
-#include "constants.h"
-#include "typedefs.h"
-#include "messages.h"
-#include "utils.h"
-#include "datautils.h"
-#include "progress.h"
+#include "project/constants.h"
+#include "project/typedefs.h"
+#include "project/messages.h"
+#include "project/utils.h"
+#include "project/datautils.h"
+#include "project/progress.h"
 
 extern char *optarg;
 extern int optind, optopt;
 
 int
-parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
+parse_opts(int argcount, char **args, level_t *level, level_t **leveldata)
 {
 	int c, nargs, namelen;
 
@@ -40,9 +41,14 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
 		switch (c) {
 		case 'c':
 			/* Mark a level as completed */
-			mark_level_complete(optarg);
+			namelen = (int) strlen(optarg) + 1;
+			namelen = (namelen > LVLNAME_MAX) ? LVLNAME_MAX : namelen;
+			memcpy(level->levelname, optarg, namelen);
+			level->levelname[LVLNAME_MAX - 1] = '\0';
+
+    		mark_level_complete(level, leveldata);
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			exit(EXIT_SUCCESS);
 			break;
 
@@ -50,7 +56,7 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
 			/* Display the help message */
 			show_help();
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			exit(EXIT_SUCCESS);
 			break;
 
@@ -58,18 +64,15 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
 			/* Display the user's progress */
 			show_progress();
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			exit(EXIT_SUCCESS);
 			break;
 
 		case 's':
 			/* Store the level's password */
-			printf("optind: %d, argc: %d\n", optind, argcount);
-			printf("argv[optind]: %s, argv[argc-1]: %s, optarg: %s\n", args[optind], args[argcount-1], optarg);
-
-			store_pass(optarg, args[argcount - 1], level, all_levelinfo);
+			store_pass(optarg, args[argcount - 1], level, leveldata);
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			exit(EXIT_SUCCESS);
 			break;
 
@@ -77,14 +80,14 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
 			fprintf(stderr, ERR_MISSING_OPTARG, (char) optopt);
 			show_usage();
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			exit(EXIT_FAILURE);
 			break;
 
 		case '?':
 		default:
 			free(level);
-			free_levels(all_levelinfo);
+			free_levels(leveldata);
 			quit("[Error] unknown option.\n");
 		}
 	}
@@ -93,7 +96,7 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levelinfo)
 	nargs = argcount - optind;
 	if (nargs != 1) {
 		free(level);
-		free_levels(all_levelinfo);
+		free_levels(leveldata);
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 

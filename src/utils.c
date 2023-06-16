@@ -1,18 +1,19 @@
 /* utils.c - OTW program */
 
+#include "project/utils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "utils.h"
-#include "typedefs.h"
-#include "constants.h"
-#include "messages.h"
+#include "project/typedefs.h"
+#include "project/constants.h"
+#include "project/messages.h"
 
 void
 show_usage(void)
 {
-	fprintf(stderr, USAGE_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
-			DEFAULT_PROGNAME);
+	fprintf(stderr, USAGE_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
+							   DEFAULT_PROGNAME, DEFAULT_PROGNAME);
 	return;
 }
 
@@ -20,7 +21,7 @@ void
 show_help(void)
 {
 	fprintf(stdout, HELP_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
-			DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME);
+							  DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME);
 	return;
 }
 
@@ -43,9 +44,9 @@ print_level(level_t *level)
 	printf("hostaddr...................%s\n", level->hostaddr);
 	printf("port.......................%d\n", level->port);
 	printf("maxlevel...................%d\n", level->maxlevel);
-	printf("is_level_completed.........%d\n", level->is_level_completed);
-	printf("is_game_completed..........%d\n", level->is_game_completed);
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n\n");
+	printf("is_level_complete..........%d\n", level->is_level_complete);
+	printf("is_game_complete...........%d\n", level->is_game_complete);
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	return;
 }
 
@@ -62,9 +63,9 @@ print_leveldata(level_t **leveldata)
 		printf("hostaddr...................%s\n", leveldata[i]->hostaddr);
 		printf("port.......................%d\n", leveldata[i]->port);
 		printf("maxlevel...................%d\n", leveldata[i]->maxlevel);
-		printf("is_level_completed.........%d\n", leveldata[i]->is_level_completed);
-		printf("is_game_completed..........%d\n", leveldata[i]->is_game_completed);
-		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n\n");
+		printf("is_level_complete..........%d\n", leveldata[i]->is_level_complete);
+		printf("is_game_complete...........%d\n", leveldata[i]->is_game_complete);
+		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	}
 	return;
 }

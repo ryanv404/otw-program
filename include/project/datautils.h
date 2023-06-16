@@ -1,7 +1,7 @@
 #ifndef _MY_DATAUTILS_H
 #define _MY_DATAUTILS_H
 
-#include "typedefs.h"
+#include "project/typedefs.h"
 
 level_t **load_data(void);
 void 	  save_data(level_t **levels);

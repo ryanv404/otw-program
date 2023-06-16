@@ -11,8 +11,8 @@ typedef struct level_t {
     char 	hostaddr[LVLADDR_MAX];
     int 	port;
     int 	maxlevel;
-    int 	is_level_completed;
-    int 	is_game_completed;
+    int 	is_level_complete;
+    int 	is_game_complete;
 } level_t;
 
 #endif /* _MY_TYPEDEFS_H */

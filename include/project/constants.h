@@ -42,7 +42,7 @@
 #define DRIFTER_PORT		2230
 #define FORMULAONE_PORT		2223
 
-#define OPTSTR			":c:dhs:"
+#define OPTSTR			":c:hps:"
 
 #endif /* _MY_CONSTANTS_H */
 

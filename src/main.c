@@ -3,13 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "typedefs.h" 		/* struct typedefs */
-#include "datautils.h" 		/* load_data, free_levels */
-#include "messages.h" 		/* ERR_BAD_LEVEL_ARG, ERR_BAD_MALLOC */
-#include "parse_opts.h" 	/* parse_opts */
-#include "ssh_connect.h" 	/* connect_to_game */
-#include "utils.h" 			/* show_usage, quit */
-#include "validate.h" 		/* is_valid_level */
+#include "project/typedefs.h" 		/* struct typedefs */
+#include "project/datautils.h" 		/* load_data, free_levels */
+#include "project/messages.h" 		/* ERR_BAD_LEVEL_ARG, ERR_BAD_MALLOC */
+#include "project/parse_opts.h" 	/* parse_opts */
+#include "project/ssh_connect.h" 	/* connect_to_game */
+#include "project/utils.h" 			/* show_usage, quit */
+#include "project/validate.h" 		/* is_valid_level */
 
 int
 main(int argc, char **argv)
@@ -32,7 +32,7 @@ main(int argc, char **argv)
 	parse_opts(argc, argv, level, all_leveldata);
 
 	/* Validate user provided level */
-	if (is_valid_level(level, all_leveldata) != 0) {
+	if (is_valid_level(level, all_leveldata) == -1) {
 		free(level);
 		free_levels(all_leveldata);
 		quit(ERR_BAD_LEVEL_ARG);
