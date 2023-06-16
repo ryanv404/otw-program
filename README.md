@@ -1,4 +1,4 @@
-# OTW Program
+# OTW Program (not finished)
 
 A command line tool written in C that will make the process of connecting to [OverTheWire](https://overthewire.org/wargames/ "OTW") levels quicker and more convenient, keep track of passwords the user has uncovered, and track the user's overall progress at completing the 183+ OTW wargames.
 
