@@ -16,11 +16,11 @@
 	"       %s -s PASSWORD LEVEL\n\n"											\
 	"Use `%s -h` for more help.\n"
 #define HELP_MSG																\
-	"usage: %s LEVEL\n" 														\
+	"Usage: %s LEVEL\n" 														\
 	"       %s [-h|-p] [-c LEVEL]\n"											\
 	"       %s -s PASSWORD LEVEL\n"												\
 	"\n" 																		\
-	"Connect to the OTW wargame LEVEL with `%s LEVEL`.\n"						\
+	"Connect to the OTW level LEVEL with `%s LEVEL`.\n"							\
 	"\n" 																		\
 	"    LEVEL\n"		 														\
 	"        A single word composed of the wargame's name (e.g. \"bandit\")\n"	\
