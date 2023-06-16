@@ -15,6 +15,9 @@
 #include "project/typedefs.h"
 #include "project/utils.h"
 
+/* Longest address is 44 characters */
+#define MAX_ADDR_WIDTH		60
+
 const char *pubkey     = ".ssh/id_ed25519.pub";
 const char *privkey    = ".ssh/id_ed25519";
 const char *knownhosts = ".ssh/known_hosts";
@@ -22,8 +25,11 @@ const char *knownhosts = ".ssh/known_hosts";
 int
 connect_to_game(level_t *level)
 {
-	printf("[+] Connecting to %...\n", level->levelname);
+	char hostname[MAX_ADDR_WIDTH];
+	printf("[+] Connecting to %s...\n", level->levelname);
 	print_level(level);
+	sprintf(hostname, "%s@%s.labs.overthewire.org", level->levelname, level->gamename);
+	printf("hostname: %s\n", hostname);
 	return 0;
 }
 
@@ -40,7 +46,9 @@ ssh_connect(level_t *level)
 	LIBSSH2_CHANNEL *channel = NULL;
 	LIBSSH2_SESSION *session = NULL;
 
-	hostaddr = inet_addr(level->hostaddr);
+	char hostname[MAX_ADDR_WIDTH] = {0};
+	sprintf(hostname, "%s@%s.labs.overthewire.org", level->levelname, level->gamename);
+	hostaddr = inet_addr(hostname);
 
 	rc = libssh2_init(0);
 	if (rc) {

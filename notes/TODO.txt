@@ -2,15 +2,14 @@ SSH_CONNECT.C
 [_] connect_to_game()
 
 PROGRESS.C
-[_] mark_level_complete()
-[_] mark_game_complete()
+[x] mark_level_complete()
 [_] show_progress()
 
 DATA_UTILS.C
 [x] load_data()
-[_] save_data()
+[x] save_data()
 [x] free_levels()
-[_] store_pass()
+[x] store_pass()
 [x] create_new_datafile()
 [x] init_data_structs()
 

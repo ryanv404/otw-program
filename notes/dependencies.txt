@@ -6,8 +6,7 @@
 														#include <getopt.h>
 
 #include "typedefs.h"		#include "typedefs.h"		#include "typedefs.h"			#include "typedefs.h"
-							#include "constants.h"		#include "constants.h"
-#include "messages.h"		#include "messages.h"		#include "messages.h"
+#include "error_msgs.h"		#include "error_msgs.h"		#include "error_msgs.h"
 							#include "progress.h"		#include "progress.h"			#include "progress.h"
 							#include "datautils.h"		#include "datautils.h"
 #include "validate.h"		#include "validate.h"
@@ -30,8 +29,7 @@
 #include "ssh_connect.h"
 #include "typedefs.h"		#include "typedefs.h"		#include "typedefs.h"
 #include "utils.h"			#include "utils.h"
-							#include "constants.h"		#include "constants.h"
-							#include "messages.h"
+							#include "error_msgs.h"
 														#include "validate.h"
 
 

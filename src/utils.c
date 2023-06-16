@@ -4,24 +4,43 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "project/typedefs.h"
-#include "project/constants.h"
-#include "project/messages.h"
+
+#define DEFAULT_PROGNAME 	"otw"
+#define TOTAL_LEVELS		183
 
 void
 show_usage(void)
 {
-	fprintf(stderr, USAGE_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
-							   DEFAULT_PROGNAME, DEFAULT_PROGNAME);
+	fprintf(stderr, "usage: %s LEVEL\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h] [-p] [-c LEVEL] [-s PASSWORD LEVEL]\n\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "use `%s -h` or `%s --help` for more help.\n", DEFAULT_PROGNAME, DEFAULT_PROGNAME);
 	return;
 }
 
 void
 show_help(void)
 {
-	fprintf(stdout, HELP_MSG, DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME,
-							  DEFAULT_PROGNAME, DEFAULT_PROGNAME, DEFAULT_PROGNAME);
+	fprintf(stderr, "Usage: %s LEVEL\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h] [-p] [-c LEVEL] [-s PASSWORD LEVEL]\n\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "Connect to the OTW level LEVEL with `%s LEVEL`.\n\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "    LEVEL\n");
+	fprintf(stderr, "        A single word composed of the wargame's name (e.g. \"bandit\")\n");
+	fprintf(stderr, "        and the level number (e.g. \"2\").\n");
+	fprintf(stderr, "        For example, `%s bandit2`, `%s vortex12`, etc.\n\n", DEFAULT_PROGNAME, DEFAULT_PROGNAME);
+	fprintf(stderr, "    -c, --complete LEVEL\n");
+	fprintf(stderr, "        Mark the level LEVEL as complete. Note: storing a password for a\n");
+	fprintf(stderr, "        level automatically marks the level before it complete.\n\n");
+	fprintf(stderr, "    -h, --help\n");
+	fprintf(stderr, "        Show this help information.\n\n");
+	fprintf(stderr, "    -p, --progress\n");
+	fprintf(stderr, "        Display which wargames you've completed and your overall progress.\n\n");
+	fprintf(stderr, "    -s, --store PASSWORD LEVEL\n");
+	fprintf(stderr, "        Store password PASSWORD for the level LEVEL in a local file to\n");
+	fprintf(stderr, "        make connecting to the level more convenient. Note: this will also\n");
+	fprintf(stderr, "        mark the level before it (where the password was obtained) complete.\n\n");
 	return;
 }
 
@@ -35,36 +54,22 @@ quit(char *msg)
 void
 print_level(level_t *level)
 {
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
-	printf("Level info:\n");
-	printf("levelname..................%s\n", level->levelname);
-	printf("gamename...................%s\n", level->gamename);
-	printf("pass.......................%s\n", level->pass);
-	printf("is_pass_saved..............%d\n", level->is_pass_saved);
-	printf("hostaddr...................%s\n", level->hostaddr);
-	printf("port.......................%d\n", level->port);
-	printf("maxlevel...................%d\n", level->maxlevel);
-	printf("is_level_complete..........%d\n", level->is_level_complete);
-	printf("is_game_complete...........%d\n", level->is_game_complete);
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("level name.................%s\n", level->levelname);
+	printf("game name..................%s\n", level->gamename);
+	printf("password...................%s\n", level->pass);
+	printf("port.......................%"PRIu16"\n", level->port);
+	printf("is password saved..........%s\n", level->is_pass_saved ? "YES" : "NO");
+	printf("is level complete..........%s\n", level->is_level_complete ? "YES" : "NO");
 	return;
 }
 
 void
-print_leveldata(level_t **leveldata)
+print_all_levels(level_t **all_levels)
 {
 	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
-	for (int i = 0; i < NUM_LEVELS; i++) {
+	for (int i = 0; i < TOTAL_LEVELS; i++) {
 		printf("Level %d:\n", i);
-		printf("levelname..................%s\n", leveldata[i]->levelname);
-		printf("gamename...................%s\n", leveldata[i]->gamename);
-		printf("pass.......................%s\n", leveldata[i]->pass);
-		printf("is_pass_saved..............%d\n", leveldata[i]->is_pass_saved);
-		printf("hostaddr...................%s\n", leveldata[i]->hostaddr);
-		printf("port.......................%d\n", leveldata[i]->port);
-		printf("maxlevel...................%d\n", leveldata[i]->maxlevel);
-		printf("is_level_complete..........%d\n", leveldata[i]->is_level_complete);
-		printf("is_game_complete...........%d\n", leveldata[i]->is_game_complete);
+		print_level(all_levels[i]);
 		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	}
 	return;
