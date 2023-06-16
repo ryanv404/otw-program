@@ -170,11 +170,10 @@ create_new_datafile(void)
 		fwrite(levels[i], sizeof(level_t), 1, outfile);
 	}
 
-	printf("[+] New data file created.\n");
+	printf("[+] Created the local data file.\n");
 
 	fclose(infile);
 	fclose(outfile);
-
 	return levels;
 }
 

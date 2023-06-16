@@ -15,14 +15,14 @@
 #include "project/typedefs.h"
 #include "project/utils.h"
 
-const char *pubkey  = ".ssh/id_ed25519.pub";
-const char *privkey = ".ssh/id_ed25519";
+const char *pubkey     = ".ssh/id_ed25519.pub";
+const char *privkey    = ".ssh/id_ed25519";
 const char *knownhosts = ".ssh/known_hosts";
 
 int
 connect_to_game(level_t *level)
 {
-	puts("connect_to_game has been called.");
+	printf("[+] Connecting to %...\n", level->levelname);
 	print_level(level);
 	return 0;
 }
@@ -35,34 +35,34 @@ ssh_connect(level_t *level)
 	char *userauthlist;
 	const char *fingerprint;
 	struct sockaddr_in sin;
-	LIBSSH2_CHANNEL *channel;
 	libssh2_socket_t sock;
 
+	LIBSSH2_CHANNEL *channel = NULL;
 	LIBSSH2_SESSION *session = NULL;
 
 	hostaddr = inet_addr(level->hostaddr);
 
 	rc = libssh2_init(0);
 	if (rc) {
-		quit("[Error] libssh2 initialization failed.\n");
+		quit("[Error] Could not initialize libssh2.\n");
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == LIBSSH2_INVALID_SOCKET) {
-		fprintf(stderr, "[Error] failed to create socket.\n");
+		fprintf(stderr, "[Error] Failed to a create socket.\n");
 		rc = 1;
 		goto shutdown;
 	}
 
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(level->port);
+	sin.sin_port = htons((uint16_t) level->port);
 	sin.sin_addr.s_addr = hostaddr;
 
-	fprintf(stderr, "[SSH] connecting to %s:%d as user %s\n",
+	fprintf(stderr, "[+] Connecting to %s:%d as user %s.\n",
 			inet_ntoa(sin.sin_addr), ntohs(sin.sin_port), level->levelname);
 
 	if (connect(sock, (struct sockaddr *)(&sin), sizeof(struct sockaddr_in))) {
-		fprintf(stderr, "[Error] failed to connect.\n");
+		fprintf(stderr, "[Error] Failed to connect.\n");
 		goto shutdown;
 	}
 
@@ -72,15 +72,16 @@ ssh_connect(level_t *level)
 
 	session = libssh2_session_init();
 	if (!session) {
-		fprintf(stderr, "[Error] could not initialize SSH session.\n");
+		fprintf(stderr, "[Error] Could not initialize an SSH session.\n");
 		goto shutdown;
 	}
 
 	rc = libssh2_session_handshake(session, sock);
 	if (rc) {
-		fprintf(stderr, "[Error] failure establishing SSH session: %d\n", rc);
+		fprintf(stderr, "[Error] Failure to establish an SSH session: %d\n", rc);
 		goto shutdown;
 	}
+
 	rc = 1;
 
 	/* At this point we have not yet authenticated.  The first thing to do
@@ -90,7 +91,7 @@ ssh_connect(level_t *level)
 	 */
 
 	fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
-	fprintf(stderr, "[SSH] Fingerprint: ");
+	fprintf(stderr, "[+] Fingerprint: ");
 	for (i = 0; i < 20; i++) {
 		fprintf(stderr, "%02X ", (unsigned char) fingerprint[i]);
 	}
@@ -101,21 +102,21 @@ ssh_connect(level_t *level)
 										 (unsigned int) strlen(level->levelname));
 	
 	if (userauthlist) {
-		fprintf(stderr, "[SSH] authentication methods: %s\n", userauthlist);
+		fprintf(stderr, "[+] Authentication methods: %s.\n", userauthlist);
 	}
 	
 	/* Authenticate with a password */
 	if (libssh2_userauth_password(session, level->levelname, level->pass)) {
-		fprintf(stderr, "[Error] authentication by password failed.\n");
+		fprintf(stderr, "[Error] Authentication by password failed.\n");
 		goto shutdown;
 	} else {
-		fprintf(stderr, "[SSH] authentication by password succeeded.\n");
+		fprintf(stderr, "[+] Authentication by password succeeded.\n");
 	}
 
 	/* Request a session channel on which to run a shell */
 	channel = libssh2_channel_open_session(session);
 	if (!channel) {
-		fprintf(stderr, "[Error] unable to open a session\n");
+		fprintf(stderr, "[Error] Unable to open a session.\n");
 		goto shutdown;
 	}
 
@@ -126,12 +127,12 @@ ssh_connect(level_t *level)
 
 	#if 0
 	if(libssh2_channel_request_pty(channel, "vanilla")) {
-		fprintf(stderr, "Failed requesting pty\n");
+		fprintf(stderr, "[Error] Failed requesting pty.\n");
 	}
 	#endif
 
 	if(libssh2_channel_shell(channel)) {
-		fprintf(stderr, "[Error] unable to request shell on allocated pty\n");
+		fprintf(stderr, "[Error] Unable to request a shell on the allocated pty.\n");
 		goto shutdown;
 	}
 
@@ -160,7 +161,7 @@ ssh_connect(level_t *level)
 		char buf[1024];
 		ssize_t err = libssh2_channel_read(channel, buf, sizeof(buf));
 		if (err < 0) {
-			fprintf(stderr, "[Error] unable to read response: %d\n", (int)err);
+			fprintf(stderr, "[Error] Unable to read response: %d\n", (int) err);
 		} else {
 			fwrite(buf, 1, err, stdout);
 		}
@@ -169,7 +170,7 @@ ssh_connect(level_t *level)
 	rc = libssh2_channel_get_exit_status(channel);
 
 	if (libssh2_channel_close(channel)) {
-		fprintf(stderr, "[Error] unable to close channel.\n");
+		fprintf(stderr, "[Error] Unable to close channel.\n");
 	}
 
 	if (channel) {
@@ -188,7 +189,7 @@ shutdown:
 		close(sock);
 	}
 
-	fprintf(stderr, "all done!\n");
+	fprintf(stderr, "[+] All done!\n");
 	libssh2_exit();
 	return rc;
 }
