@@ -1,8 +1,9 @@
-#include "utils.h"
+/* utils.c - OTW program */
 
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "utils.h"
 #include "typedefs.h"
 #include "constants.h"
 #include "messages.h"

@@ -1,0 +1,41 @@
+==> src/main.c <==			==> src/datautils.c <==		==> src/parse_opts.c <==		==> src/progress.c <==
+#include <stdio.h>			#include <stdio.h>			#include <stdio.h>				#include <stdio.h>
+#include <stdlib.h>			#include <stdlib.h>			#include <stdlib.h>				#include <stdlib.h>
+							#include <string.h>			#include <string.h>
+							#include <unistd.h>			#include <unistd.h>
+														#include <getopt.h>
+
+#include "typedefs.h"		#include "typedefs.h"		#include "typedefs.h"			#include "typedefs.h"
+							#include "constants.h"		#include "constants.h"
+#include "messages.h"		#include "messages.h"		#include "messages.h"
+							#include "progress.h"		#include "progress.h"			#include "progress.h"
+							#include "datautils.h"		#include "datautils.h"
+#include "validate.h"		#include "validate.h"
+#include "utils.h"			#include "utils.h"			#include "utils.h"
+#include "datautils.h"
+#include "parse_opts.h"									#include "parse_opts.h"
+#include "ssh_connect.h"
+
+==> src/ssh_connect.c <==	==> src/utils.c <==			==> src/validate.c <==
+#include <stdio.h>			#include <stdio.h>			#include <stdio.h>
+#include <stdlib.h>			#include <stdlib.h>			#include <stdlib.h>
+#include <string.h>										#include <string.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <libssh2.h>
+
+#include "ssh_connect.h"
+#include "typedefs.h"		#include "typedefs.h"		#include "typedefs.h"
+#include "utils.h"			#include "utils.h"
+							#include "constants.h"		#include "constants.h"
+							#include "messages.h"
+														#include "validate.h"
+
+
+
+
+
+

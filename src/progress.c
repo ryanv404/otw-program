@@ -1,8 +1,9 @@
-#include "progress.h"
+/* progress.c - OTW program */
 
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "progress.h"
 #include "typedefs.h"
 
 int

@@ -1,7 +1,0 @@
-SSH_CONNECT.C
-[_] connect_to_game(level_t *level);
-
-PROGRESS.C
-[_] mark_level_complete(char *level);
-[_] mark_game_complete(char *game);
-[_] show_progress(void);

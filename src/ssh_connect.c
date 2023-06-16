@@ -1,4 +1,4 @@
-#include "ssh_connect.h"
+/* ssh_connect.c - OTW program */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "ssh_connect.h"
 #include "typedefs.h"
 #include "utils.h"
 

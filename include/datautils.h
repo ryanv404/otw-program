@@ -3,11 +3,9 @@
 
 #include "typedefs.h"
 
-void create_new_datafile(void);
-void read_datafile(level_t **levels);
-void write_to_datafile(level_t **levels);
-void free_levels(level_t **levels);
-int store_pass(char *pass, char *levelname, level_t *level, level_t **leveldata);
-level_t **load_saved_data(void);
+level_t **load_data(void);
+void 	  save_data(level_t **levels);
+int 	  store_pass(char *pass, char *levelname, level_t *level, level_t **leveldata);
+void 	  free_levels(level_t **levels);
 
 #endif /* _MY_DATAUTILS_H */

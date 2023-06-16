@@ -7,6 +7,7 @@
 #define ERR_BAD_LEVEL_ARG	"[Error] invalid level argument."
 #define ERR_MISSING_OPTARG 	"[Error] option -%c is missing a required argument.\n\n"
 #define ERR_BAD_MALLOC		"[Error] memory allocation error.\n"
+#define ERR_FOPEN_FAILED	"[Error] could not open the data file.\n"
 
 /* Usage/help messages */
 #define USAGE_MSG																\
