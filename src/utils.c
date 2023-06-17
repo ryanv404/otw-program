@@ -59,13 +59,13 @@ print_level(level_t *level)
 {
 	char hostname[MAX_ADDR_WIDTH];
 	sprintf(hostname, "%s@%s.labs.overthewire.org", level->levelname, level->gamename);
-	printf("level name.................%s\n", level->levelname);
-	printf("game name..................%s\n", level->gamename);
+	printf("level_name.................%s\n", level->levelname);
+	printf("game_name..................%s\n", level->gamename);
 	printf("password...................%s\n", level->pass);
 	printf("hostname...................%s\n", hostname);
 	printf("port.......................%"PRIu16"\n", level->port);
-	printf("is password saved..........%s\n", level->is_pass_saved ? "YES" : "NO");
-	printf("is level complete..........%s\n", level->is_level_complete ? "YES" : "NO");
+	printf("is_password_saved..........%s\n", level->is_pass_saved ? "YES" : "NO");
+	printf("is_level_complete..........%s\n", level->is_level_complete ? "YES" : "NO");
 	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	return;
 }

@@ -246,7 +246,7 @@ show_progress(level_t **all_levels)
 	}
 
 	if (tot_num_complete == TOTAL_LEVELS) {
-		printf("\n[[!!!::+ FINISHED +::!!!]] :-D\n");
+		printf("\n[[[[!!!::+ FINISHED +::!!!]]]] :-D\n");
 	} else {
 		printf("\n[+ OVERALL +]\n");
 		perc =  (((float) tot_num_complete / (float) TOTAL_LEVELS) * 100);
