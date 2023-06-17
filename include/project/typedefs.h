@@ -3,10 +3,8 @@
 
 #include <stdint.h>
 
-/* Longest level name is 12 characters */
-#define MAX_NAME_WIDTH		16
-/* Unclear what the max length should be */
-#define MAX_PASS_WIDTH		52
+#define MAX_NAME_WIDTH		16 /* Longest level name is 12 characters */
+#define MAX_PASS_WIDTH		52 /* Unclear what the max length should be */
 
 typedef struct level_t {
     char 		levelname[MAX_NAME_WIDTH];
@@ -19,9 +17,8 @@ typedef struct level_t {
 
 typedef struct init_level_t {
     char		gamename[MAX_NAME_WIDTH];
-    int			port;
+    uint16_t	port;
     int			maxlevel;
 } init_level_t;
-
 
 #endif /* _MY_TYPEDEFS_H */

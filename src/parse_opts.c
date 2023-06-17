@@ -13,7 +13,6 @@
 #include "project/error_msgs.h"
 #include "project/utils.h"
 #include "project/datautils.h"
-#include "project/progress.h"
 
 #define OPTSTR		":c:hps:"
 
@@ -64,7 +63,7 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levels)
 
 		case 'p':
 			/* Display the user's progress */
-			show_progress();
+			show_progress(all_levels);
 			free(level);
 			free_levels(all_levels);
 			exit(EXIT_SUCCESS);
@@ -90,7 +89,7 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levels)
 		default:
 			free(level);
 			free_levels(all_levels);
-			quit("[Error] unknown option.\n");
+			quit("[-] Unknown option.\n");
 		}
 	}
 

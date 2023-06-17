@@ -15,7 +15,8 @@ void
 show_usage(void)
 {
 	fprintf(stderr, "usage: %s LEVEL\n", DEFAULT_PROGNAME);
-	fprintf(stderr, "       %s [-h] [-p] [-c LEVEL] [-s PASSWORD LEVEL]\n\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL] [-s|--store PASSWORD LEVEL]\n\n",
+			DEFAULT_PROGNAME);
 	fprintf(stderr, "use `%s -h` or `%s --help` for more help.\n", DEFAULT_PROGNAME, DEFAULT_PROGNAME);
 	return;
 }
@@ -24,7 +25,8 @@ void
 show_help(void)
 {
 	fprintf(stderr, "Usage: %s LEVEL\n", DEFAULT_PROGNAME);
-	fprintf(stderr, "       %s [-h] [-p] [-c LEVEL] [-s PASSWORD LEVEL]\n\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL] [-s|--store PASSWORD LEVEL]\n\n",
+			DEFAULT_PROGNAME);
 	fprintf(stderr, "Connect to the OTW level LEVEL with `%s LEVEL`.\n\n", DEFAULT_PROGNAME);
 	fprintf(stderr, "    LEVEL\n");
 	fprintf(stderr, "        A single word composed of the wargame's name (e.g. \"bandit\")\n");

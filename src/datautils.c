@@ -13,7 +13,6 @@
 #include "project/validate.h"
 #include "project/error_msgs.h"
 #include "project/utils.h"
-#include "project/progress.h"
 
 #define DATAFILE        "data/otw-data.dat"
 #define TEMP_DATAFILE   DATAFILE	"~"
@@ -38,22 +37,29 @@ create_new_datafile(void)
 
 	level_t **all_levels = init_data_structs();
 
+	/* Assign default values to the fields of each level */
 	level_index = 0;
 	for (int i = 0; i < TOTAL_GAMES; i++) {
 		for (int j = 0; j < init_levels[i].maxlevel; j++) {
+			/* Level name */
 			sprintf(namebuf, "%s%d", init_levels[i].gamename, j);
 			strncpy(all_levels[level_index]->levelname, namebuf, MAX_NAME_WIDTH);
+			/* Game name */
 			strncpy(all_levels[level_index]->gamename, init_levels[i].gamename, MAX_NAME_WIDTH);
+			/* Password */
 			strncpy(all_levels[level_index]->pass, "?", 2);
+			/* Port */
 			all_levels[level_index]->port = (uint16_t) init_levels[i].port;
+			/* Is password saved */
 			all_levels[level_index]->is_pass_saved = (uint8_t) 0;
+			/* Is level complete */
 			all_levels[level_index]->is_level_complete = (uint8_t) 0;
 			level_index++;
 		}
 	}
 
 	save_data(all_levels);
-	printf("[+] Created a local data file.\n");
+	printf("[+] No data file found so a new one has been created.\n");
 	return all_levels;
 }
 
@@ -62,14 +68,11 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 {
 	int namelen, passlen, idx;
 
+	/* Handle user-supplied level name string carefully */
 	namelen = (int) strlen(levelname) + 1;
-	passlen = (int) strlen(pass) + 1;
 	namelen = (namelen > MAX_NAME_WIDTH) ? MAX_NAME_WIDTH : namelen;
-	passlen = (passlen > MAX_PASS_WIDTH) ? MAX_PASS_WIDTH : passlen;
 	memcpy(level->levelname, levelname, namelen);
-	memcpy(level->pass, pass, passlen);
 	level->levelname[MAX_NAME_WIDTH - 1] = '\0';
-	level->pass[MAX_PASS_WIDTH - 1] = '\0';
 
 	/* Validate user provided level; returns index of matched level in all_levels array */
 	if ((idx = is_valid_level(level, all_levels)) == -1) {
@@ -78,15 +81,21 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 
+	/* Handle user-supplied password string carefully */
+	passlen = (int) strlen(pass) + 1;
+	passlen = (passlen > MAX_PASS_WIDTH) ? MAX_PASS_WIDTH : passlen;
+	memcpy(all_levels[idx]->pass, pass, passlen);
+	all_levels[idx]->pass[MAX_PASS_WIDTH - 1] = '\0';
+	all_levels[idx]->is_pass_saved = (uint8_t) 1;
+
 	/* Must beat level prior to this one to get this password so mark it as complete */
-	all_levels[idx - 1]->is_level_complete = 1;
+	// all_levels[idx - 1]->is_level_complete = (uint8_t) 1; /* TODO but not on the 0th level! */ 
 
 	/* Write pw to data file */
-	memcpy(all_levels[idx]->pass, pass, passlen);
-	all_levels[idx]->is_pass_saved = (uint8_t) 1;
 	save_data(all_levels);
 
-	printf("[+] Successfully stored password for %s.\n", level->levelname);
+	printf("[+] Successfully saved %s's password.\n", all_levels[idx]->levelname);
+	printf("    %s -> %s\n", all_levels[idx]->levelname, all_levels[idx]->pass);
 	return 0;
 }
 
@@ -100,7 +109,7 @@ init_data_structs(void)
 	}
 
 	for (int i = 0; i < TOTAL_LEVELS; i++) {
-		all_levels[i] = (level_t *) malloc(sizeof(level_t));
+		all_levels[i] = (level_t *) calloc(1, sizeof(level_t));
 		if (all_levels[i] == NULL) {
 			fprintf(stderr, ERR_BAD_MALLOC);
 			exit(EXIT_FAILURE);
@@ -165,4 +174,49 @@ free_levels(level_t **all_levels)
 	}
 	free(all_levels);
 	return;
+}
+
+int
+mark_level_complete(level_t *level, level_t **all_levels)
+{
+	int idx;
+
+	if ((idx = is_valid_level(level, all_levels)) == -1) {
+		free(level);
+		free_levels(all_levels);
+		quit(ERR_BAD_LEVEL_ARG);
+	}
+	
+	all_levels[idx]->is_level_complete = 1;
+    printf("[+] Level %s has been marked complete.\n", all_levels[idx]->levelname);
+
+	save_data(all_levels);
+	return 0;
+}
+
+int
+show_progress(level_t **all_levels)
+{
+	int tot_num_complete, num_complete;
+	int level_idx = 0;
+
+	puts("Your progress:");
+	puts("**************");
+	tot_num_complete = 0;
+	for (int i = 0; i < TOTAL_GAMES; i++) {
+		num_complete = 0;
+		for (int x = 0; x < init_levels[i].maxlevel; x++) {
+			if (all_levels[level_idx]->is_level_complete) {
+				tot_num_complete++;
+				num_complete++;
+			}
+			level_idx++;
+		}
+		printf("[%s] %d of %d levels have been completed (%d%% complete).\n", init_levels[i].gamename,
+				num_complete, init_levels[i].maxlevel, num_complete/init_levels[i].maxlevel);
+	}
+	printf("\n[+ OVERALL +] You've completed %d levels and have %d to go (%d%% complete).\n", tot_num_complete,
+			TOTAL_LEVELS - tot_num_complete, tot_num_complete/TOTAL_LEVELS);
+
+	return 0;
 }

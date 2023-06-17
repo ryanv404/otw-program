@@ -6,7 +6,7 @@ A command line tool written in C that will make the process of connecting to [Ov
 
 - Stores the level passwords you've uncovered in a local file.
 - Connect to a wargame and start working by simply providing the level name (if password is stored).
-- Mark levels as completed from the command line; setting a password for a level automatically marks it as completed.
+- Mark levels as completed from the command line; setting a password for a level automatically marks the previous level as completed.
 - Display your progress at completing all of the wargames.
 - Uses libssh2 to connect to OTW levels.
 
@@ -31,8 +31,8 @@ make
 
 ```
 Usage: otw LEVEL
-       otw [-h|-p] [-c LEVEL]
-       otw -s PASSWORD LEVEL
+       otw [-h|--help] [-p|--progress] [-c|--complete LEVEL]
+           [-s|--store PASSWORD LEVEL]
 
 Connect to the OTW level LEVEL with `otw LEVEL`.
 
