@@ -17,13 +17,13 @@ INC    := -Iinclude
 LIB    := -lssh2
 
 $(TARGET): $(OBJECTS)
-	@echo "[+] Linking target executable..."
+	@echo "[+] Linking $@"
 	@mkdir -p $(DATADIR)
 	@mkdir -p $(TARGETDIR)
 	@echo "$(CC) $^ -o $(TARGET) $(LIB)"; $(CC) $^ -o $(TARGET) $(LIB)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
-	@echo "[+] Compiling..."
+	@echo "[+] Compiling $@"
 	@mkdir -p $(BUILDDIR)
 	@echo "$(CC) $(CFLAGS) $(INC) -c -o $@ $<"; $(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
