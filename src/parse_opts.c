@@ -13,8 +13,9 @@
 #include "project/error_msgs.h"
 #include "project/utils.h"
 #include "project/datautils.h"
+#include "project/validate.h"
 
-#define OPTSTR		":c:hps:"
+#define OPTSTR		":al:c:hps:"
 
 extern char *optarg;
 extern int optind, optopt;
@@ -29,6 +30,9 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levels)
 		{"progress", no_argument, 		0, 	'p'},
 		{"complete", required_argument, 0, 	'c'},
 		{"store", 	 required_argument, 0, 	's'},
+		/* DEBUG OPTIONS */
+		{"all", 	 no_argument, 		0, 	'a'},
+		{"level", 	 required_argument, 0, 	'l'},
 		{0, 0, 0, 0}
 	};
 
@@ -40,6 +44,28 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levels)
 		if (c == -1) break;
 
 		switch (c) {
+		/* START OF DEBUG OPTIONS */
+		case 'a':
+			/* DEBUG: Print stored data for all levels */
+			print_all_levels(all_levels);
+			free(level);
+			free_levels(all_levels);
+			exit(EXIT_SUCCESS);
+		case 'l':
+			/* DEBUG: Print stored data for the specified level */
+			strncpy(level->levelname, optarg, MAX_NAME_WIDTH);
+			if (is_valid_level(level, all_levels) == -1) {
+				fprintf(stderr, "[-] Invalid level argument.\n");
+				free(level);
+				free_levels(all_levels);
+				exit(EXIT_FAILURE);
+			}
+			print_level(level);
+			free(level);
+			free_levels(all_levels);
+			exit(EXIT_SUCCESS);
+		/* END OF DEBUG OPTIONS */
+		
 		case 'c':
 			/* Mark a level as completed */
 			namelen = (int) strlen(optarg) + 1;

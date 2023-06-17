@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <libssh2.h>
 #include <sys/socket.h>
@@ -26,10 +27,10 @@ int
 connect_to_game(level_t *level)
 {
 	char hostname[MAX_ADDR_WIDTH];
-	printf("[+] Connecting to %s...\n", level->levelname);
-	print_level(level);
 	sprintf(hostname, "%s@%s.labs.overthewire.org", level->levelname, level->gamename);
-	printf("hostname: %s\n", hostname);
+	printf("[+] Connecting to %s on port %"PRIu16"\n", hostname, level->port);
+	print_level(level);
+	puts("[+] All done. Exiting now.");
 	return 0;
 }
 

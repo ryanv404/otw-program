@@ -8,12 +8,14 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 
 #include "project/typedefs.h"
 #include "project/validate.h"
 #include "project/error_msgs.h"
 #include "project/utils.h"
 
+#define DATADIR			"data"
 #define DATAFILE        "data/otw-data.dat"
 #define TEMP_DATAFILE   DATAFILE	"~"
 #define TOTAL_GAMES		12
@@ -34,13 +36,23 @@ create_new_datafile(void)
 {
 	int level_index;
 	char namebuf[100];
+	struct stat sb;
+
+	stat(DATADIR, &sb);
+
+	if (!S_ISDIR(sb.st_mode)) {
+		if (mkdir(DATADIR, 0755) == -1) {
+			fprintf(stderr, "[-] Unable to create a data directory in the current working directory.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	level_t **all_levels = init_data_structs();
 
 	/* Assign default values to the fields of each level */
 	level_index = 0;
 	for (int i = 0; i < TOTAL_GAMES; i++) {
-		for (int j = 0; j < init_levels[i].maxlevel; j++) {
+		for (int j = 0; j <= init_levels[i].maxlevel; j++) {
 			/* Level name */
 			sprintf(namebuf, "%s%d", init_levels[i].gamename, j);
 			strncpy(all_levels[level_index]->levelname, namebuf, MAX_NAME_WIDTH);
@@ -161,8 +173,11 @@ save_data(level_t **all_levels)
 	}
 
 	fclose(outfile);
-	rename(TEMP_DATAFILE, DATAFILE);
 
+	if (rename(TEMP_DATAFILE, DATAFILE)) {
+		fprintf(stderr, "[-] Unable to rename the data file.\n");
+	}
+	
 	return;
 }
 
@@ -197,26 +212,48 @@ mark_level_complete(level_t *level, level_t **all_levels)
 int
 show_progress(level_t **all_levels)
 {
-	int tot_num_complete, num_complete;
-	int level_idx = 0;
+	int tot_num_complete, num_complete, total_levels, width;
+	int levels_index = 0;
+	float perc;
 
-	puts("Your progress:");
-	puts("**************");
+	puts("\n*********************");
+	puts("*   Your progress   *");
+	puts("*********************\n");
+
 	tot_num_complete = 0;
 	for (int i = 0; i < TOTAL_GAMES; i++) {
 		num_complete = 0;
-		for (int x = 0; x < init_levels[i].maxlevel; x++) {
-			if (all_levels[level_idx]->is_level_complete) {
+		total_levels = init_levels[i].maxlevel + 1;
+		for (int x = 0; x < total_levels; x++) {
+			if (all_levels[levels_index]->is_level_complete) {
 				tot_num_complete++;
 				num_complete++;
 			}
-			level_idx++;
+			levels_index++;
 		}
-		printf("[%s] %d of %d levels have been completed (%d%% complete).\n", init_levels[i].gamename,
-				num_complete, init_levels[i].maxlevel, num_complete/init_levels[i].maxlevel);
+		
+		printf("[%s] ", init_levels[i].gamename);
+		if (num_complete == total_levels) {
+			width = 12 - strlen(init_levels[i].gamename);
+			printf("%*s%s", width, "[", ":+ COMPLETE +:] \\o/");
+		} else {
+			width = 12 - strlen(init_levels[i].gamename);
+			perc = (((float) num_complete / (float) total_levels) * 100);
+			printf("%*d/%-2d levels completed (%.0f%% complete).", width,
+					num_complete, total_levels, perc);
+		}
+		printf("\n");
 	}
-	printf("\n[+ OVERALL +] You've completed %d levels and have %d to go (%d%% complete).\n", tot_num_complete,
-			TOTAL_LEVELS - tot_num_complete, tot_num_complete/TOTAL_LEVELS);
+
+	if (tot_num_complete == TOTAL_LEVELS) {
+		printf("\n[[!!!::+ FINISHED +::!!!]] :-D\n");
+	} else {
+		printf("\n[+ OVERALL +]\n");
+		perc =  (((float) tot_num_complete / (float) TOTAL_LEVELS) * 100);
+		printf("You've completed %d %s and have %d more to go (%.1f%% complete).\n", tot_num_complete,
+				tot_num_complete == 1 ? "level" : "levels", TOTAL_LEVELS - tot_num_complete, perc);
+	}
+	printf("\n");
 
 	return 0;
 }

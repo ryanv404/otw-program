@@ -2,6 +2,3 @@ data/*.dat
 build/
 bin/
 .vscode/
-**/CMake*
-configure*
-Makefile*

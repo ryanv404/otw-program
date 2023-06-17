@@ -10,13 +10,14 @@
 
 #define DEFAULT_PROGNAME 	"otw"
 #define TOTAL_LEVELS		183
+#define MAX_ADDR_WIDTH		60
 
 void
 show_usage(void)
 {
 	fprintf(stderr, "usage: %s LEVEL\n", DEFAULT_PROGNAME);
-	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL] [-s|--store PASSWORD LEVEL]\n\n",
-			DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL]\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "           [-s|--store PASSWORD LEVEL]\n\n");
 	fprintf(stderr, "use `%s -h` or `%s --help` for more help.\n", DEFAULT_PROGNAME, DEFAULT_PROGNAME);
 	return;
 }
@@ -25,8 +26,8 @@ void
 show_help(void)
 {
 	fprintf(stderr, "Usage: %s LEVEL\n", DEFAULT_PROGNAME);
-	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL] [-s|--store PASSWORD LEVEL]\n\n",
-			DEFAULT_PROGNAME);
+	fprintf(stderr, "       %s [-h|--help] [-p|--progress] [-c|--complete LEVEL]\n", DEFAULT_PROGNAME);
+	fprintf(stderr, "           [-s|--store PASSWORD LEVEL]\n\n");
 	fprintf(stderr, "Connect to the OTW level LEVEL with `%s LEVEL`.\n\n", DEFAULT_PROGNAME);
 	fprintf(stderr, "    LEVEL\n");
 	fprintf(stderr, "        A single word composed of the wargame's name (e.g. \"bandit\")\n");
@@ -56,23 +57,24 @@ quit(char *msg)
 void
 print_level(level_t *level)
 {
+	char hostname[MAX_ADDR_WIDTH];
+	sprintf(hostname, "%s@%s.labs.overthewire.org", level->levelname, level->gamename);
 	printf("level name.................%s\n", level->levelname);
 	printf("game name..................%s\n", level->gamename);
 	printf("password...................%s\n", level->pass);
+	printf("hostname...................%s\n", hostname);
 	printf("port.......................%"PRIu16"\n", level->port);
 	printf("is password saved..........%s\n", level->is_pass_saved ? "YES" : "NO");
 	printf("is level complete..........%s\n", level->is_level_complete ? "YES" : "NO");
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	return;
 }
 
 void
 print_all_levels(level_t **all_levels)
 {
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	for (int i = 0; i < TOTAL_LEVELS; i++) {
-		printf("Level %d:\n", i);
 		print_level(all_levels[i]);
-		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	}
 	return;
 }
