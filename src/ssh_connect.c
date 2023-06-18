@@ -20,21 +20,46 @@
 #include "project/typedefs.h"
 #include "project/utils.h"
 
-#define MAX_ADDR_WIDTH	60 /* Longest address is 44 characters */
-
-#define PUBKEY		".ssh/id_ed25519.pub"
-#define PRIVATEKEY	".ssh/id_ed25519"
-#define KNOWNHOSTS	".ssh/known_hosts"
+#define MAX_ADDR_WIDTH	60
+#define KNOWNHOSTS		"data/known_hosts"
 
 int
 connect_to_game(level_t *level)
 {
-	int					s;
+	int					s, i, rc;
 	struct addrinfo 	hints;
-	struct addrinfo    *result, *rp;
-	char addrbuf[INET_ADDRSTRLEN];
+	struct addrinfo    *res;
+	struct sockaddr_in 	serveraddr;
+	libssh2_socket_t 	sock;
+	char 			   *userauthlist;
+	const char 		   *fingerprint;
 
-	/* Obtain address(es) matching host/port */
+	char hostname[MAX_ADDR_WIDTH] = "";
+	char addrbuf[INET_ADDRSTRLEN] = "";
+
+	//LIBSSH2_CHANNEL *channel = NULL;
+	LIBSSH2_SESSION *session = NULL;
+
+	rc = libssh2_init(0);
+	if (rc != 0) {
+		fprintf(stderr, "[-] Could not initialize libssh2.\n");
+		freeaddrinfo(res);
+		return -1;
+	}
+	printf("[*] libssh2 initialized.\n");
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == LIBSSH2_INVALID_SOCKET) {
+		fprintf(stderr, "[-] Failed to a create socket.\n");
+		freeaddrinfo(res);
+		libssh2_exit();
+		return -1;
+	}
+	printf("[*] Socket created.\n");
+
+	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
+
+	/* Obtain IPv4 address matching host/port */
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family 	= AF_INET; 		/* Allow IPv4 */
 	hints.ai_socktype 	= SOCK_STREAM; 	/* TCP socket */
@@ -43,33 +68,87 @@ connect_to_game(level_t *level)
 	hints.ai_canonname 	= NULL;
 	hints.ai_addr 		= NULL;
 	hints.ai_next 		= NULL;
-
-	char hostname[MAX_ADDR_WIDTH] = {0};
-	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
 	
-	s = getaddrinfo(hostname, level->port, &hints, &result);
+	s = getaddrinfo(hostname, level->port, &hints, &res);
 	if (s != 0) {
-		fprintf(stderr, "[-] getaddrinfo: %s\n", gai_strerror(s));
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "[-] getaddrinfo error: %s\n", gai_strerror(s));
+		return -1;
 	}
 
-	for (rp = result; rp != NULL; rp = rp->ai_next) {
-		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
-		printf("[+] getaddrinfo:\n");
-		printf("ai_family............%s\n",	(rp->ai_family == 2) ? "IPv4" : "NOT IPv4");
-		printf("ai_socktype..........%s\n",	(rp->ai_socktype == 1) ? "SOCK_STREAM" : "NOT SOCK_STREAM");
-		printf("ai_protocol..........%d\n",	rp->ai_protocol);
-		printf("ai_addr->sa_family...%s\n", (rp->ai_addr->sa_family == 2) ? "IPv4" : "NOT IPv4");
-		inet_ntop(AF_INET, result->ai_addr->sa_data, addrbuf, INET_ADDRSTRLEN);
-		printf("ai_addr->sa_data.....%s\n", addrbuf);
-		printf("level->port..........%"PRIu16"\n", (uint16_t) strtoul(level->port, NULL, 10));
-		printf("ai_addrlen...........%u bytes\n", rp->ai_addrlen);
-		printf("ai_flags.............%d\n", rp->ai_flags);
-		printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	memcpy(&serveraddr, res->ai_addr, sizeof(serveraddr));
+
+	fprintf(stderr, "[*] Connecting to server...\n");
+	if (connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) {
+		fprintf(stderr, "[-] Failed to connect.\n");
+		goto shutdown;
 	}
+
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("hostname.............%s\n", hostname);
+	printf("ai_addr->sa_family...%s\n", (res->ai_addr->sa_family == 2) ? "IPv4" : "NOT IPv4");
+	printf("ai_socktype..........%s\n",	(res->ai_socktype == 1) ? "SOCK_STREAM" : "NOT SOCK_STREAM");
+	printf("ai_protocol..........%d\n",	res->ai_protocol);
+	printf("ai_addr->sa_data.....%s\n", addrbuf);
+	printf("sin_addr.............%s\n", inet_ntoa(serveraddr.sin_addr));
+	printf("level->port..........%s\n", level->port);
+	printf("sin_port.............%d\n", ntohs(serveraddr.sin_port));
+	printf("ai_flags.............%d\n", res->ai_flags);
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	print_level(level);
 
-	freeaddrinfo(result);
+	freeaddrinfo(res);
+
+	fprintf(stderr, "[+] Successfully connected to %s@%s:%d.\n", level->levelname, hostname,
+			ntohs(serveraddr.sin_port));
+
+	session = libssh2_session_init();
+	if (!session) {
+		fprintf(stderr, "[-] Could not initialize an SSH session.\n");
+		goto shutdown;
+	}
+
+	rc = libssh2_session_handshake(session, sock);
+	if (rc) {
+		fprintf(stderr, "[-] Failure to establish an SSH session: %d\n", rc);
+		goto shutdown;
+	}
+
+	/* Check the server's fingerprint against our known hosts. */
+	fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
+	
+	fprintf(stderr, "[*] Server fingerprint:\n");
+	for (i = 0; i < 20; i++) {
+		fprintf(stderr, "%02X ", (unsigned char) fingerprint[i]);
+	}
+	fprintf(stderr, "\n");
+
+	if (access(KNOWNHOSTS, F_OK) != 0) {
+		puts("[*] OTW known_hosts file does not exist.");
+	} else {
+		puts("[*] Checking for server's fingerprint in the OTW known_hosts file. ");
+	}
+
+	/* Check what authentication methods are available */
+	userauthlist = libssh2_userauth_list(session, level->levelname,
+										 (unsigned int) strlen(level->levelname));
+	
+	if (userauthlist) {
+		fprintf(stderr, "[+] Authentication methods: %s.\n", userauthlist);
+	}
+
+shutdown:
+	if (session) {
+		libssh2_session_disconnect(session, "Normal Shutdown");
+		libssh2_session_free(session);
+	}
+
+	if (sock != LIBSSH2_INVALID_SOCKET) {
+		shutdown(sock, 2);
+		close(sock);
+	}
+
+	fprintf(stderr, "[+] All done. Exiting now.\n");
+	libssh2_exit();
 	return 0;
 }
 
@@ -114,11 +193,6 @@ int ssh_connect(level_t *level)
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(2220);
 	sin.sin_addr.s_addr = hostaddr;
-
-	printf("[*] sockaddr_in:\n");
-	printf("    sin_family      = %hu\n", sin.sin_family);
-	printf("    sin_port        = %"PRIu16"\n", sin.sin_port);
-	printf("    sin_addr.s_addr = 0x%"PRIx32"\n", sin.sin_addr.s_addr);
 
 	fprintf(stderr, "[+] Connecting to %s:%d as user %s.\n",
 			inet_ntoa(sin.sin_addr), ntohs(sin.sin_port), level->levelname);
@@ -172,7 +246,7 @@ int ssh_connect(level_t *level)
 	/* Request a session channel on which to run a shell */
 	channel = libssh2_channel_open_session(session);
 	if (!channel) {
-		fprintf(stderr, "[-] Unable to open a session.\n");
+		fprintf(stderr, "[-] Unable to open a session channel.\n");
 		goto shutdown;
 	}
 

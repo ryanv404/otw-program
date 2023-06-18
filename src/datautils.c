@@ -71,7 +71,7 @@ create_new_datafile(void)
 	}
 
 	save_data(all_levels);
-	printf("[+] No data file found so a new one has been created.\n");
+	printf("[*] No data file found so a new one has been created.\n");
 	return all_levels;
 }
 
