@@ -17,17 +17,17 @@ INC    := -Iinclude
 LIB    := -lssh2
 
 $(TARGET): $(OBJECTS)
-	@echo "[+] Linking $@"
+	@echo -n "[+] Linking $@: "
 	@mkdir -p $(DATADIR)
 	@mkdir -p $(TARGETDIR)
 	@echo "$(CC) $^ -o $(TARGET) $(LIB)"; $(CC) $^ -o $(TARGET) $(LIB)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
-	@echo "[+] Compiling $@"
+	@echo -n "[+] Compiling $@: "
 	@mkdir -p $(BUILDDIR)
 	@echo "$(CC) $(CFLAGS) $(INC) -c -o $@ $<"; $(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 .PHONY: clean
 clean:
-	@echo "Cleaning up..."
+	@echo "[+] Cleaning up..."
 	@echo "$(RM) -r $(BUILDDIR) $(TARGETDIR) $(DATA)"; $(RM) -r $(BUILDDIR) $(TARGETDIR) $(DATA)

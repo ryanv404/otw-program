@@ -1,6 +1,3 @@
-SSH_CONNECT.C
-[_] connect_to_game()
-
 DATA_UTILS.C
 [x] load_data()
 [x] save_data()
@@ -14,8 +11,8 @@ DATA_UTILS.C
 PARSE_OPTS.C
 [x] parse_opts()
 
-VALIDATE.C
-[x] is_valid_level()
+SSH_CONNECT.C
+[_] connect_to_game()
 
 UTILS.C
 [x] quit()
@@ -24,11 +21,14 @@ UTILS.C
 [x] print_levels()
 [x] print_level()
 
-TESTS
-[x] test_add_some_passwords
-[_] test_add_all_passwords
+VALIDATE.C
+[x] is_valid_level()
+
+TESTS:
 [x] test_complete_some_levels
 [x] test_complete_all_levels
+[x] test_add_some_passwords
+[_] test_add_all_passwords
 [_] test_making_connection_strings
 [_] test_buffer_overflows
 [_] test_invalid_inputs
