@@ -16,7 +16,7 @@
 #include "project/utils.h"
 
 #define DATADIR			"data"
-#define DATAFILE        "data/otw-data.dat"
+#define DATAFILE        "data/otw_data.dat"
 #define TEMP_DATAFILE   DATAFILE	"~"
 #define TOTAL_GAMES		12
 #define TOTAL_LEVELS	183
@@ -71,7 +71,6 @@ create_new_datafile(void)
 	}
 
 	save_data(all_levels);
-	printf("[*] No data file found so a new one has been created.\n");
 	return all_levels;
 }
 
@@ -106,8 +105,8 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 	/* Write pw to data file */
 	save_data(all_levels);
 
-	printf("[+] Successfully saved %s's password.\n", all_levels[idx]->levelname);
-	printf("    %s -> %s\n", all_levels[idx]->levelname, all_levels[idx]->pass);
+	printf("[+] Saved %s's password.\n", all_levels[idx]->levelname);
+	printf("    %s: %s\n", all_levels[idx]->levelname, all_levels[idx]->pass);
 	return 0;
 }
 
@@ -203,7 +202,7 @@ mark_level_complete(level_t *level, level_t **all_levels)
 	}
 	
 	all_levels[idx]->is_level_complete = 1;
-    printf("[+] Level %s has been marked complete.\n", all_levels[idx]->levelname);
+    printf("[+] %s is marked complete.\n", all_levels[idx]->levelname);
 
 	save_data(all_levels);
 	return 0;

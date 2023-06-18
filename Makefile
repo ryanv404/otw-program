@@ -7,7 +7,7 @@ TARGETDIR := bin
 
 SRCEXT  := c
 DATAEXT := dat
-DATA    := $(DATADIR)/otw-data.$(DATAEXT)
+DATA    := $(shell find $(DATADIR) -type f -name "*.$(DATAEXT)")
 TARGET  := $(TARGETDIR)/otw
 SOURCES := $(shell find $(SRCDIR) -type f -name "*.$(SRCEXT)")
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))

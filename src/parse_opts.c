@@ -97,7 +97,14 @@ parse_opts(int argcount, char **args, level_t *level, level_t **all_levels)
 
 		case 's':
 			/* Store the level's password */
-			store_pass(optarg, args[argcount - 1], level, all_levels);
+			if (optind != argcount) {
+				store_pass(optarg, args[argcount - 1], level, all_levels);
+			} else {
+				free(level);
+				free_levels(all_levels);
+				quit("[-] Level argument is missing.\n");
+			}
+
 			free(level);
 			free_levels(all_levels);
 			exit(EXIT_SUCCESS);
