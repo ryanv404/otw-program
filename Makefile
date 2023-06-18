@@ -12,7 +12,7 @@ TARGET  := $(TARGETDIR)/otw
 SOURCES := $(shell find $(SRCDIR) -type f -name "*.$(SRCEXT)")
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 
-CFLAGS := -Wall -Wextra -pedantic -Werror -g -save-temps
+CFLAGS := -Wall -Wextra -pedantic -Werror -g
 INC    := -Iinclude
 LIB    := -lssh2
 

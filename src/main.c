@@ -38,12 +38,8 @@ main(int argc, char **argv)
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 
-	/* Release unneeded memory */
-	free_levels(all_levels);
-
 	/* Connect to the level */
-	connect_to_game(level);
+	connect_to_game(level, all_levels);
 
-	free(level);
 	exit(EXIT_SUCCESS);
 }

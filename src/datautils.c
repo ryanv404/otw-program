@@ -80,8 +80,7 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 	int namelen, passlen, idx;
 
 	/* Handle user-supplied level name string carefully */
-	namelen = (int) strlen(levelname) + 1;
-	namelen = (namelen > MAX_NAME_WIDTH) ? MAX_NAME_WIDTH : namelen;
+	namelen = (int) strnlen(levelname, MAX_NAME_WIDTH);
 	memcpy(level->levelname, levelname, namelen);
 	level->levelname[MAX_NAME_WIDTH - 1] = '\0';
 
@@ -93,8 +92,7 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 	}
 
 	/* Handle user-supplied password string carefully */
-	passlen = (int) strlen(pass) + 1;
-	passlen = (passlen > MAX_PASS_WIDTH) ? MAX_PASS_WIDTH : passlen;
+	passlen = (int) strnlen(pass, MAX_PASS_WIDTH);
 	memcpy(all_levels[idx]->pass, pass, passlen);
 	all_levels[idx]->pass[MAX_PASS_WIDTH - 1] = '\0';
 	all_levels[idx]->is_pass_saved = (uint8_t) 1;
@@ -106,7 +104,6 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 	save_data(all_levels);
 
 	printf("[+] Saved %s's password.\n", all_levels[idx]->levelname);
-	printf("    %s: %s\n", all_levels[idx]->levelname, all_levels[idx]->pass);
 	return 0;
 }
 
@@ -171,12 +168,11 @@ save_data(level_t **all_levels)
 		fwrite(all_levels[i], sizeof(level_t), 1, outfile);
 	}
 
-	fclose(outfile);
-
 	if (rename(TEMP_DATAFILE, DATAFILE)) {
-		fprintf(stderr, "[-] Unable to rename the data file.\n");
+		fprintf(stderr, "[-] Error while processing the data file.\n");
 	}
 	
+	fclose(outfile);
 	return;
 }
 
@@ -202,7 +198,7 @@ mark_level_complete(level_t *level, level_t **all_levels)
 	}
 	
 	all_levels[idx]->is_level_complete = 1;
-    printf("[+] %s is marked complete.\n", all_levels[idx]->levelname);
+    printf("[+] %s is now marked complete.\n", all_levels[idx]->levelname);
 
 	save_data(all_levels);
 	return 0;

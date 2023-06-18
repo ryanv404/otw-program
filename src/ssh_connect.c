@@ -19,41 +19,42 @@
 
 #include "project/typedefs.h"
 #include "project/utils.h"
+#include "project/validate.h"
+#include "project/datautils.h"
 
 #define MAX_ADDR_WIDTH	60
 #define KNOWNHOSTS		"data/known_otw_hosts.dat"
 
+int save_correct_pw(level_t *level, level_t **all_levels);
+int clear_bad_pw(level_t *level, level_t **all_levels);
 int check_for_known_host(const char *fingerprint, level_t *level);
 
 int
-connect_to_game(level_t *level)
+connect_to_game(level_t *level, level_t **all_levels)
 {
 	int					s, rc;
 	char 			   *userauthlist;
 	const char 		   *fingerprint;
 	struct addrinfo 	hints;
-	struct addrinfo    *res;
 	struct sockaddr_in 	serveraddr;
 	libssh2_socket_t 	sock;
 
-	char hostname[MAX_ADDR_WIDTH] = "";
-
-	//LIBSSH2_CHANNEL *channel = NULL;
+	struct addrinfo    *res  = NULL;
+	LIBSSH2_CHANNEL *channel = NULL;
 	LIBSSH2_SESSION *session = NULL;
+	char hostname[MAX_ADDR_WIDTH] = "";
 
 	rc = libssh2_init(0);
 	if (rc != 0) {
 		fprintf(stderr, "[-] Could not initialize libssh2.\n");
-		freeaddrinfo(res);
 		return -1;
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == LIBSSH2_INVALID_SOCKET) {
 		fprintf(stderr, "[-] Failed to a create socket.\n");
-		freeaddrinfo(res);
-		libssh2_exit();
-		return -1;
+		rc = 1;
+		goto shutdown;
 	}
 
 	/* Obtain IPv4 address matching host/port */
@@ -67,52 +68,42 @@ connect_to_game(level_t *level)
 	hints.ai_next 		= NULL;
 	
 	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
-
 	s = getaddrinfo(hostname, level->port, &hints, &res);
 	if (s != 0) {
 		fprintf(stderr, "[-] getaddrinfo error: %s\n", gai_strerror(s));
-		return -1;
+		rc = 2;
+		goto shutdown;
 	}
 
 	memcpy(&serveraddr, res->ai_addr, sizeof(serveraddr));
 
+	fprintf(stderr, "[*] Connecting to %s on port %d as user %s.\n", hostname, ntohs(serveraddr.sin_port),
+			level->levelname);
+
 	if (connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) {
 		fprintf(stderr, "[-] Failed to connect.\n");
+		rc = 3;
 		goto shutdown;
 	}
-
-	// printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
-	// printf("hostname.............%s\n", hostname);
-	// printf("ai_addr->sa_family...%s\n", (res->ai_addr->sa_family == 2) ? "IPv4" : "NOT IPv4");
-	// printf("ai_socktype..........%s\n",	(res->ai_socktype == 1) ? "SOCK_STREAM" : "NOT SOCK_STREAM");
-	// printf("ai_protocol..........%d\n",	res->ai_protocol);
-	// printf("sin_addr.............%s\n", inet_ntoa(serveraddr.sin_addr));
-	// printf("level->port..........%s\n", level->port);
-	// printf("sin_port.............%d\n", ntohs(serveraddr.sin_port));
-	// printf("ai_flags.............%d\n", res->ai_flags);
-	// printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
-	// print_level(level);
-
-	freeaddrinfo(res);
-
-	fprintf(stderr, "[+] Connected to %s on port %d\n", hostname, ntohs(serveraddr.sin_port));
 
 	session = libssh2_session_init();
 	if (!session) {
 		fprintf(stderr, "[-] Could not initialize an SSH session.\n");
+		rc = 4;
 		goto shutdown;
 	}
 
 	rc = libssh2_session_handshake(session, sock);
 	if (rc != 0) {
 		fprintf(stderr, "[-] Failed to establish an SSH session.\n");
+		rc = 5;
 		goto shutdown;
 	}
 
 	fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_MD5);
-	
 	if (fingerprint == NULL) {
-		fprintf(stderr, "[-] Could not retrieve a fingerprint from the server. Exiting now.\n");
+		fprintf(stderr, "[-] Could not retrieve a fingerprint from the server.\n");
+		rc = 6;
 		goto shutdown;
 	}
 
@@ -122,26 +113,44 @@ connect_to_game(level_t *level)
 	/* Ensure that the server accepts password authentication */
 	userauthlist = libssh2_userauth_list(session, level->levelname,
 										 (unsigned int) strlen(level->levelname));
-	
 	if (!userauthlist || (strstr(userauthlist, "password") == NULL)) {
-		puts("[-] This server does not accept password authentication.");
+		fprintf(stderr, "[-] This server does not accept password authentication.\n");
+		rc = 6;
 		goto shutdown;
 	}
 
-	/* Authenticate with a password */
+	if (!level->is_pass_saved) {
+		char passbuf[MAX_PASS_WIDTH];
+		printf("[!] Enter %s's password: ", level->levelname);
+		scanf("%51s", passbuf);
+		strncpy(level->pass, passbuf, MAX_PASS_WIDTH);
+	}
+
+	/* Authenticate with the password */
 	if (libssh2_userauth_password(session, level->levelname, level->pass)) {
 		fprintf(stderr, "[-] Password authentication failed.\n");
+		if (level->is_pass_saved) {
+			/* Don't keep an incorrect password stored */
+			clear_bad_pw(level, all_levels);
+		}
+		rc = 7;
 		goto shutdown;
-	} else {
-		fprintf(stderr, "[+] Authenticated as %s.\n", level->levelname);
 	}
 
-// /* Request a session channel on which to run a shell */
-// channel = libssh2_channel_open_session(session);
-// if (!channel) {
-// 	fprintf(stderr, "[-] Unable to open a session channel.\n");
-// 	goto shutdown;
-// }
+	if (!level->is_pass_saved) {
+		/* Password was correct so now we should store it */
+		save_correct_pw(level, all_levels);
+	}
+
+	 /* Request a session channel on which to run a shell */
+	 channel = libssh2_channel_open_session(session);
+	 if (!channel) {
+	 	fprintf(stderr, "[-] Unable to open a session channel.\n");
+		rc = 8;
+	 	goto shutdown;
+	 }
+
+	puts("[+] Channel opened to server.");
 
 // /* Request a terminal with 'vanilla' terminal emulation
 // 	* See /etc/termcap for more options. This is useful when opening
@@ -193,16 +202,23 @@ connect_to_game(level_t *level)
 
 // rc = libssh2_channel_get_exit_status(channel);
 
-// if (libssh2_channel_close(channel)) {
-// 	fprintf(stderr, "[-] Unable to close channel.\n");
-// }
+	if (libssh2_channel_close(channel)) {
+		fprintf(stderr, "[-] Unable to close channel.\n");
+	}
 
-// if (channel) {
-// 	libssh2_channel_free(channel);
-// 	channel = NULL;
-// }
+	if (channel) {
+		libssh2_channel_free(channel);
+		channel = NULL;
+	}
 
 shutdown:
+	free(level);
+	free_levels(all_levels);
+	
+	if (res != NULL) {
+		freeaddrinfo(res);
+	}
+
 	if (session) {
 		libssh2_session_disconnect(session, "Normal shutdown");
 		libssh2_session_free(session);
@@ -214,6 +230,33 @@ shutdown:
 	}
 
 	libssh2_exit();
+	return rc;
+}
+
+int save_correct_pw(level_t *level, level_t **all_levels)
+{
+	int idx;
+
+	idx = is_valid_level(level, all_levels);
+	printf("saving pass for all_levels[%d]->levelname: %s\n", idx, all_levels[idx]->levelname);
+	memcpy(all_levels[idx]->pass, level->pass, MAX_PASS_WIDTH - 1);
+	all_levels[idx]->is_pass_saved = (uint8_t) 1;
+
+	save_data(all_levels);
+	printf("[+] Saved %s's password.\n", all_levels[idx]->levelname);
+	return 0;
+}
+
+int clear_bad_pw(level_t *level, level_t **all_levels)
+{
+	int idx;
+
+	idx = is_valid_level(level, all_levels);
+
+	memcpy(all_levels[idx]->pass, "?", 2);
+	all_levels[idx]->is_pass_saved = (uint8_t) 0;
+
+	save_data(all_levels);
 	return 0;
 }
 
@@ -229,14 +272,13 @@ check_for_known_host(const char *fingerprint, level_t *level)
 	memcpy(fprint.fingerprint, fingerprint, MD5_FINGERPRINT_WIDTH);
 	strncpy(fprint.gamename, level->gamename, MAX_NAME_WIDTH);
 
-	fprintf(stderr, "[*] Server's fingerprint is");
+	fprintf(stderr, "[*] %s's host fingerprint is:\n    ", level->levelname);
 	for (int i = 0; i < 16; i++) {
-		if (i % 4 == 0) {
+		if ((i != 0) && (i % 4 == 0)) {
 			fprintf(stderr, " ");
 		}
 		fprintf(stderr, "%02X", (unsigned char) fingerprint[i]);
 	}
-	fprintf(stderr, "\n");
 
 	if (access(KNOWNHOSTS, F_OK) == 0) {
 		fp = fopen(KNOWNHOSTS, "rb+");
@@ -245,21 +287,25 @@ check_for_known_host(const char *fingerprint, level_t *level)
 			/* Check if host's fingerprint is in the known hosts file */
 			while (fread(&fprint, sizeof(fprint), 1, fp) == 1) {
 				if (strncmp(fingerprint, fprint.fingerprint, MD5_FINGERPRINT_WIDTH) == 0) {
-					puts("[*] This server is a known host.");
+					fprintf(stderr, " [KNOWN HOST]\n");
 					fclose(fp);
 					return 0;
 				}
 			}
+
+			fprintf(stderr, " [UNKNOWN HOST]\n");
+
 			/* Ensure that we're appending and clear any EOF */
 			fseek(fp, 0, SEEK_END);
 
 			/* Save the host's fingerprint to the known hosts file */
 			fwrite(&fprint, sizeof(fprint), 1, fp);
-			fprintf(stderr, "[*] Server has been saved to the known hosts file.\n");
 			fclose(fp);
 			return 0;
 		}
 	}
+
+	fprintf(stderr, " [UNKNOWN HOST]\n");
 
 	/* Create new known hosts file */
 	fp = fopen(KNOWNHOSTS, "wb");
@@ -270,7 +316,6 @@ check_for_known_host(const char *fingerprint, level_t *level)
 
 	/* Save the host's fingerprint to the known hosts file */
 	fwrite(&fprint, sizeof(fprint), 1, fp);
-	fprintf(stderr, "[*] Server has been saved to the known hosts file.\n");
 	fclose(fp);
 
 	return 0;
