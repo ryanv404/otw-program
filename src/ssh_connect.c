@@ -95,7 +95,7 @@ connect_to_game(level_t *level)
 
 	freeaddrinfo(res);
 
-	fprintf(stderr, "[+] Connected to %s:%d.\n", hostname, ntohs(serveraddr.sin_port));
+	fprintf(stderr, "[+] Connected to %s on port %d\n", hostname, ntohs(serveraddr.sin_port));
 
 	session = libssh2_session_init();
 	if (!session) {
@@ -217,7 +217,6 @@ shutdown:
 	return 0;
 }
 
-
 int
 check_for_known_host(const char *fingerprint, level_t *level)
 {
@@ -227,52 +226,52 @@ check_for_known_host(const char *fingerprint, level_t *level)
 		.gamename = {0}
 	};
 
-	fprintf(stderr, "[*] Server's fingerprint:");
+	memcpy(fprint.fingerprint, fingerprint, MD5_FINGERPRINT_WIDTH);
+	strncpy(fprint.gamename, level->gamename, MAX_NAME_WIDTH);
+
+	fprintf(stderr, "[*] Server's fingerprint is");
 	for (int i = 0; i < 16; i++) {
 		if (i % 4 == 0) {
 			fprintf(stderr, " ");
 		}
-		fprintf(stderr, "%02x", (unsigned char) fingerprint[i]);
+		fprintf(stderr, "%02X", (unsigned char) fingerprint[i]);
 	}
 	fprintf(stderr, "\n");
 
 	if (access(KNOWNHOSTS, F_OK) == 0) {
 		fp = fopen(KNOWNHOSTS, "rb+");
-		if (fp == NULL) {
-			fprintf(stderr, "[-] Unable to open the OTW known hosts file.\n");
-		} else {
+		/* If fp is NULL, we try to create a new file below */
+		if (fp != NULL) {
 			/* Check if host's fingerprint is in the known hosts file */
 			while (fread(&fprint, sizeof(fprint), 1, fp) == 1) {
 				if (strncmp(fingerprint, fprint.fingerprint, MD5_FINGERPRINT_WIDTH) == 0) {
-					puts("[*] This server is known.");
+					puts("[*] This server is a known host.");
 					fclose(fp);
 					return 0;
 				}
 			}
-			/* Save the host's fingerprint to the known hosts file */
-			memcpy(fprint.fingerprint, fingerprint, MD5_FINGERPRINT_WIDTH);
-			strncpy(fprint.gamename, level->gamename, MAX_NAME_WIDTH);
-
 			/* Ensure that we're appending and clear any EOF */
 			fseek(fp, 0, SEEK_END);
 
-			fwrite(&fprint, sizeof(fprint), 1, fp);
-			fprintf(stderr, "[*] Server's fingerprint has been saved.\n");
-			fclose(fp);
-		}
-	} else {
-		fp = fopen(KNOWNHOSTS, "wb");
-		if (fp == NULL) {
-			fprintf(stderr, "[-] Unable to create an OTW known hosts file.\n");
-		} else {
 			/* Save the host's fingerprint to the known hosts file */
-			memcpy(fprint.fingerprint, fingerprint, MD5_FINGERPRINT_WIDTH);
-			strncpy(fprint.gamename, level->gamename, MAX_NAME_WIDTH);
-
 			fwrite(&fprint, sizeof(fprint), 1, fp);
-			fprintf(stderr, "[*] This server has been saved to the known hosts file.\n");
+			fprintf(stderr, "[*] Server has been saved to the known hosts file.\n");
 			fclose(fp);
+			return 0;
 		}
 	}
+
+	/* Create new known hosts file */
+	fp = fopen(KNOWNHOSTS, "wb");
+	if (fp == NULL) {
+		fprintf(stderr, "[-] Unable to create an OTW known hosts file.\n");
+		return 1;
+	}
+
+	/* Save the host's fingerprint to the known hosts file */
+	fwrite(&fprint, sizeof(fprint), 1, fp);
+	fprintf(stderr, "[*] Server has been saved to the known hosts file.\n");
+	fclose(fp);
+
 	return 0;
 }

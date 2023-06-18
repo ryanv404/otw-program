@@ -1,8 +1,14 @@
 #!/usr/bin/bash
 
+RED="\e[1;31m"
+GREEN="\e[1;32m"
+CLRFMT="\e[0m"
+
 LEVELS="bandit12 narnia9 behemoth3 maze1 utumno5 vortex21 manpage0 drifter14 formulaone3 leviathan6 krypton2 natas21"
 PW_ARR=()
 LVL_ARR=()
+
+[[ -f "data/otw_data.dat" ]] && rm data/otw_data.dat
 
 # Add passwords to various levels
 for level in $LEVELS; do
@@ -20,9 +26,9 @@ for level in $LEVELS; do
 done
 unset level
 
-echo "[+] Testing whether input password and saved password is the same."
+echo "[*] Testing whether input password and saved password are the same."
 for i in {0..11}; do
 	echo -ne "${LVL_ARR[$i]}   \t"
-	[[ "${PW_ARR[$i]}" = "${OUT_ARR[$i]}" ]] && echo "  [PASSED]" || echo "  [FAILED]"
+	[[ "${PW_ARR[$i]}" = "${OUT_ARR[$i]}" ]] && echo -e "$GREEN  [PASSED]$CLRFMT" || echo -e "$RED  [FAILED]$CLRFMT"
 done
 unset i

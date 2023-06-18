@@ -1,8 +1,14 @@
 #!/usr/bin/bash
 
+RED="\e[1;31m"
+GREEN="\e[1;32m"
+CLRFMT="\e[0m"
+
 NUM_MARKED=0
 NUM_EXPECTED=()
 LVL_NAME=()
+
+[[ -f "data/otw_data.dat" ]] && rm data/otw_data.dat
 
 # Test marking each level as complete
 for i in {21..24}; do bin/otw -c "bandit$i" > /dev/null; ((NUM_MARKED++)); done;
@@ -34,11 +40,11 @@ unset i NUM_MARKED
 
 OUT_ARR=$(bin/otw -p | grep -E '^\[\w+' | sed 's/\[[[:alpha:]]\{1,\}\][[:space:]]\{1,\}//g' | sed 's/\/.\{1,\}//g' | tr '\n' ' ')
 
-echo "[+] Testing whether the number of levels marked complete is the same as the number saved as complete."
+echo "[*] Testing whether the number of levels marked complete is the same as the number saved as complete."
 
 i=0
 for output in ${OUT_ARR[@]}; do
 	echo -ne "${LVL_NAME[$i]}   \t"
-	[[ "$output" -eq "${NUM_EXPECTED[$i]}" ]] && echo "[PASSED]" || echo "[FAILED]"
+	[[ "$output" -eq "${NUM_EXPECTED[$i]}" ]] && echo -e "${GREEN}[PASSED]${CLRFMT}" || echo -e "${RED}[FAILED]${CLRFMT}"
 	((i++))
 done

@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+[[ -f "data/otw_data.dat" ]] && rm data/otw_data.dat
+
+echo -e "\n[*] Marking all levels as complete and testing progress table appearance."
+
 # Test marking each level as complete
 for i in {0..8}; do bin/otw -c "behemoth$i" > /dev/null; done; unset i;
 for i in {0..9}; do bin/otw -c "maze$i" > /dev/null; done; unset i;
