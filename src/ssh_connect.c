@@ -1,322 +1,388 @@
-/* ssh_connect.c - OTW program */
+/* ssh_connect - OTW program */
 
-#include "project/ssh_connect.h"
-
-#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 #include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
 
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <libssh/libssh.h>
 
-#include <libssh2.h>
-
-#include "project/typedefs.h"
+ #include "project/typedefs.h"
 #include "project/utils.h"
 #include "project/validate.h"
 #include "project/datautils.h"
 
 #define MAX_ADDR_WIDTH	60
-#define KNOWNHOSTS		"data/known_otw_hosts.dat"
+#define KNOWNHOSTS		"data/known_hosts.dat"
 
-int save_correct_pw(level_t *level, level_t **all_levels);
-int clear_bad_pw(level_t *level, level_t **all_levels);
-int check_for_known_host(const char *fingerprint, level_t *level);
+int show_remote_processes(ssh_session session);
+int verify_knownhost(ssh_session session);
+int authenticate_password(ssh_session session);
+int test_several_auth_methods(ssh_session session);
+int display_banner(ssh_session session);
+
+int main()
+{
+  ssh_session my_ssh_session;
+  int rc;
+  char *password;
+   int verbosity = SSH_LOG_PROTOCOL;
+  int port = 22;
+  char *user;
+
+  // Open session and set options
+  my_ssh_session = ssh_new();
+  if (my_ssh_session == NULL)
+    exit(-1);
+
+   ssh_options_set(my_ssh_session, SSH_OPTIONS_HOST, "hostname");
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_PORT, port);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_USER, user);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_SSH_DIR, NULL);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_KNOWNHOSTS, NULL);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, NULL);
+  ssh_options_set(my_ssh_session, SSH_OPTIONS_PROCESS_CONFIG, NULL);
+
+  // Connect to server
+  rc = ssh_connect(my_ssh_session);
+  if (rc != SSH_OK)
+  {
+    fprintf(stderr, "Error connecting to localhost: %s\n",
+            ssh_get_error(my_ssh_session));
+    ssh_free(my_ssh_session);
+    exit(-1);
+  }
+ 
+  // Verify the server's identity
+  // For the source code of verify_knownhost(), check previous example
+  if (verify_knownhost(my_ssh_session) < 0)
+  {
+    ssh_disconnect(my_ssh_session);
+    ssh_free(my_ssh_session);
+    exit(-1);
+  }
+ 
+  // Authenticate ourselves
+  authenticate_password(my_ssh_session);
+  
+
+  ssh_disconnect(my_ssh_session);
+  ssh_free(my_ssh_session);
+}
 
 int
-connect_to_game(level_t *level, level_t **all_levels)
+connect_to_level(level_t *level, level_t **all_levels)
 {
-	int					s, rc;
-	char 			   *userauthlist;
-	const char 		   *fingerprint;
-	struct addrinfo 	hints;
-	struct sockaddr_in 	serveraddr;
-	libssh2_socket_t 	sock;
-
-	struct addrinfo    *res  = NULL;
-	LIBSSH2_CHANNEL *channel = NULL;
-	LIBSSH2_SESSION *session = NULL;
-	char hostname[MAX_ADDR_WIDTH] = "";
-
-	rc = libssh2_init(0);
-	if (rc != 0) {
-		fprintf(stderr, "[-] Could not initialize libssh2.\n");
-		return -1;
-	}
-
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock == LIBSSH2_INVALID_SOCKET) {
-		fprintf(stderr, "[-] Failed to a create socket.\n");
-		rc = 1;
-		goto shutdown;
-	}
-
-	/* Obtain IPv4 address matching host/port */
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family 	= AF_INET; 		/* Allow IPv4 */
-	hints.ai_socktype 	= SOCK_STREAM; 	/* TCP socket */
-	hints.ai_protocol 	= 0; 			/* Any protocol */
-	hints.ai_flags		= 0;
-	hints.ai_canonname 	= NULL;
-	hints.ai_addr 		= NULL;
-	hints.ai_next 		= NULL;
-	
-	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
-	s = getaddrinfo(hostname, level->port, &hints, &res);
-	if (s != 0) {
-		fprintf(stderr, "[-] getaddrinfo error: %s\n", gai_strerror(s));
-		rc = 2;
-		goto shutdown;
-	}
-
-	memcpy(&serveraddr, res->ai_addr, sizeof(serveraddr));
-
-	fprintf(stderr, "[*] Connecting to %s on port %d as user %s.\n", hostname, ntohs(serveraddr.sin_port),
-			level->levelname);
-
-	if (connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) {
-		fprintf(stderr, "[-] Failed to connect.\n");
-		rc = 3;
-		goto shutdown;
-	}
-
-	session = libssh2_session_init();
-	if (!session) {
-		fprintf(stderr, "[-] Could not initialize an SSH session.\n");
-		rc = 4;
-		goto shutdown;
-	}
-
-	rc = libssh2_session_handshake(session, sock);
-	if (rc != 0) {
-		fprintf(stderr, "[-] Failed to establish an SSH session.\n");
-		rc = 5;
-		goto shutdown;
-	}
-
-	fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_MD5);
-	if (fingerprint == NULL) {
-		fprintf(stderr, "[-] Could not retrieve a fingerprint from the server.\n");
-		rc = 6;
-		goto shutdown;
-	}
-
-	/* Check the server's fingerprint against our known hosts */
-	check_for_known_host(fingerprint, level);
-
-	/* Ensure that the server accepts password authentication */
-	userauthlist = libssh2_userauth_list(session, level->levelname,
-										 (unsigned int) strlen(level->levelname));
-	if (!userauthlist || (strstr(userauthlist, "password") == NULL)) {
-		fprintf(stderr, "[-] This server does not accept password authentication.\n");
-		rc = 6;
-		goto shutdown;
-	}
-
-	if (!level->is_pass_saved) {
-		char passbuf[MAX_PASS_WIDTH];
-		printf("[!] Enter %s's password: ", level->levelname);
-		scanf("%51s", passbuf);
-		strncpy(level->pass, passbuf, MAX_PASS_WIDTH);
-	}
-
-	/* Authenticate with the password */
-	if (libssh2_userauth_password(session, level->levelname, level->pass)) {
-		fprintf(stderr, "[-] Password authentication failed.\n");
-		if (level->is_pass_saved) {
-			/* Don't keep an incorrect password stored */
-			clear_bad_pw(level, all_levels);
-		}
-		rc = 7;
-		goto shutdown;
-	}
-
-	if (!level->is_pass_saved) {
-		/* Password was correct so now we should store it */
-		save_correct_pw(level, all_levels);
-	}
-
-	 /* Request a session channel on which to run a shell */
-	 channel = libssh2_channel_open_session(session);
-	 if (!channel) {
-	 	fprintf(stderr, "[-] Unable to open a session channel.\n");
-		rc = 8;
-	 	goto shutdown;
-	 }
-
-	puts("[+] Channel opened to server.");
-
-// /* Request a terminal with 'vanilla' terminal emulation
-// 	* See /etc/termcap for more options. This is useful when opening
-// 	* an interactive shell.
-// 	*/
-
-// #if 0
-// if (libssh2_channel_request_pty(channel, "vanilla")) {
-// 	fprintf(stderr, "[-] Failed requesting pty.\n");
-// }
-// #endif
-
-// if (libssh2_channel_shell(channel)) {
-// 	fprintf(stderr, "[-] Unable to request a shell on the allocated pty.\n");
-// 	goto shutdown;
-// }
-
-// /* At this point the shell can be interacted with using
-// 	* libssh2_channel_read()
-// 	* libssh2_channel_read_stderr()
-// 	* libssh2_channel_write()
-// 	* libssh2_channel_write_stderr()
-// 	*
-// 	* Blocking mode may be (en|dis)abled with:
-// 	*    libssh2_channel_set_blocking()
-// 	* If the server send EOF, libssh2_channel_eof() will return non-0
-// 	* To send EOF to the server use: libssh2_channel_send_eof()
-// 	* A channel can be closed with: libssh2_channel_close()
-// 	* A channel can be freed with: libssh2_channel_free()
-// 	*/
-
-// /* Read and display all the data received on stdout (ignoring stderr)
-// 	* until the channel closes. This will eventually block if the command
-// 	* produces too much data on stderr; the loop must be rewritten to use
-// 	* non-blocking mode and include interspersed calls to
-// 	* libssh2_channel_read_stderr() to avoid this. See ssh2_echo.c for
-// 	* an idea of how such a loop might look.
-// 	*/
-
-// while (!libssh2_channel_eof(channel)) {
-// 	char buf[1024];
-// 	ssize_t err = libssh2_channel_read(channel, buf, sizeof(buf));
-// 	if (err < 0) {
-// 		fprintf(stderr, "[-] Unable to read response: %d\n", (int) err);
-// 	} else {
-// 		fwrite(buf, 1, err, stdout);
-// 	}
-// }
-
-// rc = libssh2_channel_get_exit_status(channel);
-
-	if (libssh2_channel_close(channel)) {
-		fprintf(stderr, "[-] Unable to close channel.\n");
-	}
-
-	if (channel) {
-		libssh2_channel_free(channel);
-		channel = NULL;
-	}
-
-shutdown:
 	free(level);
 	free_levels(all_levels);
-	
-	if (res != NULL) {
-		freeaddrinfo(res);
-	}
-
-	if (session) {
-		libssh2_session_disconnect(session, "Normal shutdown");
-		libssh2_session_free(session);
-	}
-
-	if (sock != LIBSSH2_INVALID_SOCKET) {
-		shutdown(sock, 2);
-		close(sock);
-	}
-
-	libssh2_exit();
-	return rc;
-}
-
-int save_correct_pw(level_t *level, level_t **all_levels)
-{
-	int idx;
-
-	idx = is_valid_level(level, all_levels);
-	printf("saving pass for all_levels[%d]->levelname: %s\n", idx, all_levels[idx]->levelname);
-	memcpy(all_levels[idx]->pass, level->pass, MAX_PASS_WIDTH - 1);
-	all_levels[idx]->is_pass_saved = (uint8_t) 1;
-
-	save_data(all_levels);
-	printf("[+] Saved %s's password.\n", all_levels[idx]->levelname);
 	return 0;
 }
 
-int clear_bad_pw(level_t *level, level_t **all_levels)
+
+// can use raw mode with cfmakeraw(struct termios *termios_p)
+// for better terminal emulation.
+
+int shell_session(ssh_session session)
 {
-	int idx;
-
-	idx = is_valid_level(level, all_levels);
-
-	memcpy(all_levels[idx]->pass, "?", 2);
-	all_levels[idx]->is_pass_saved = (uint8_t) 0;
-
-	save_data(all_levels);
-	return 0;
+  ssh_channel channel;
+  int rc;
+ 
+  channel = ssh_channel_new(session);
+  if (channel == NULL)
+    return SSH_ERROR;
+ 
+  rc = ssh_channel_open_session(channel);
+  if (rc != SSH_OK)
+  {
+    ssh_channel_free(channel);
+    return rc;
+  }
+ 
+//   ...
+ 
+  ssh_channel_close(channel);
+  ssh_channel_send_eof(channel);
+  ssh_channel_free(channel);
+ 
+  return SSH_OK;
 }
 
-int
-check_for_known_host(const char *fingerprint, level_t *level)
+int interactive_shell_session(ssh_session session, ssh_channel channel)
 {
-	FILE *fp;
-	fingerprint_t fprint = {
-		.fingerprint = {0},
-		.gamename = {0}
-	};
+  /* Session and terminal initialization skipped */
+ 
+  char buffer[256];
+  int nbytes, nwritten;
+  int rc;
+ 
+  rc = ssh_channel_request_pty(channel);
+  if (rc != SSH_OK) return rc;
+ 
+  rc = ssh_channel_change_pty_size(channel, 80, 24);
+  if (rc != SSH_OK) return rc;
+ 
+  rc = ssh_channel_request_shell(channel);
+  if (rc != SSH_OK) return rc;
 
-	memcpy(fprint.fingerprint, fingerprint, MD5_FINGERPRINT_WIDTH);
-	strncpy(fprint.gamename, level->gamename, MAX_NAME_WIDTH);
+  while (ssh_channel_is_open(channel) &&
+         !ssh_channel_is_eof(channel))
+  {
+    struct timeval timeout;
+    ssh_channel in_channels[2], out_channels[2];
+    fd_set fds;
+    int maxfd;
+ 
+    timeout.tv_sec = 30;
+    timeout.tv_usec = 0;
+    in_channels[0] = channel;
+    in_channels[1] = NULL;
+    FD_ZERO(&fds);
+    FD_SET(0, &fds);
+    FD_SET(ssh_get_fd(session), &fds);
+    maxfd = ssh_get_fd(session) + 1;
+ 
+    ssh_select(in_channels, out_channels, maxfd, &fds, &timeout);
+ 
+    if (out_channels[0] != NULL)
+    {
+      nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+      if (nbytes < 0) return SSH_ERROR;
+      if (nbytes > 0)
+      {
+        nwritten = write(1, buffer, nbytes);
+        if (nwritten != nbytes) return SSH_ERROR;
+      }
+    }
+ 
+    if (FD_ISSET(0, &fds))
+    {
+      nbytes = read(0, buffer, sizeof(buffer));
+      if (nbytes < 0) return SSH_ERROR;
+      if (nbytes > 0)
+      {
+        nwritten = ssh_channel_write(channel, buffer, nbytes);
+        if (nbytes != nwritten) return SSH_ERROR;
+      }
+    }
+  }
+ 
+  return rc;
+}
 
-	fprintf(stderr, "[*] %s's host fingerprint is:\n    ", level->levelname);
-	for (int i = 0; i < 16; i++) {
-		if ((i != 0) && (i % 4 == 0)) {
-			fprintf(stderr, " ");
-		}
-		fprintf(stderr, "%02X", (unsigned char) fingerprint[i]);
-	}
+int display_banner(ssh_session session)
+{
+  int rc;
+  char *banner;
+ 
+/*
+   * Does not work without calling ssh_userauth_none() first ***
+   * That will be fixed ***
+*/
+  rc = ssh_userauth_none(session, NULL);
+  if (rc == SSH_AUTH_ERROR)
+    return rc;
+ 
+  banner = ssh_get_issue_banner(session);
+  if (banner)
+  {
+    printf("%s\n", banner);
+    free(banner);
+  }
+ 
+  return rc;
+}
 
-	if (access(KNOWNHOSTS, F_OK) == 0) {
-		fp = fopen(KNOWNHOSTS, "rb+");
-		/* If fp is NULL, we try to create a new file below */
-		if (fp != NULL) {
-			/* Check if host's fingerprint is in the known hosts file */
-			while (fread(&fprint, sizeof(fprint), 1, fp) == 1) {
-				if (strncmp(fingerprint, fprint.fingerprint, MD5_FINGERPRINT_WIDTH) == 0) {
-					fprintf(stderr, " [KNOWN HOST]\n");
-					fclose(fp);
-					return 0;
-				}
-			}
+int test_several_auth_methods(ssh_session session)
+{
+  int method, rc;
+ 
+  rc = ssh_userauth_none(session, NULL);
+  if (rc == SSH_AUTH_SUCCESS || rc == SSH_AUTH_ERROR) {
+      return rc;
+  }
+ 
+  method = ssh_userauth_list(session, NULL);
+ 
+  if (method & SSH_AUTH_METHOD_NONE)
+  { // For the source code of function authenticate_none(),
+    // refer to the corresponding example
+    rc = authenticate_none(session);
+    if (rc == SSH_AUTH_SUCCESS) return rc;
+  }
+  if (method & SSH_AUTH_METHOD_PUBLICKEY)
+  { // For the source code of function authenticate_pubkey(),
+    // refer to the corresponding example
+    rc = authenticate_pubkey(session);
+    if (rc == SSH_AUTH_SUCCESS) return rc;
+  }
+  if (method & SSH_AUTH_METHOD_INTERACTIVE)
+  { // For the source code of function authenticate_kbdint(),
+    // refer to the corresponding example
+    rc = authenticate_kbdint(session);
+    if (rc == SSH_AUTH_SUCCESS) return rc;
+  }
+  if (method & SSH_AUTH_METHOD_PASSWORD)
+  { // For the source code of function authenticate_password(),
+    // refer to the corresponding example
+    rc = authenticate_password(session);
+    if (rc == SSH_AUTH_SUCCESS) return rc;
+  }
+  return SSH_AUTH_ERROR;
+}
 
-			fprintf(stderr, " [UNKNOWN HOST]\n");
+int authenticate_password(ssh_session session)
+{
+  char *password;
+  int rc;
+ 
+  password = getpass("Enter your password: ");
+  rc = ssh_userauth_password(session, NULL, password);
+  if (rc == SSH_AUTH_ERROR)
+  {
+     fprintf(stderr, "Authentication failed: %s\n",
+       ssh_get_error(session));
+     return SSH_AUTH_ERROR;
+  }
+ 
+  return rc;
+}
 
-			/* Ensure that we're appending and clear any EOF */
-			fseek(fp, 0, SEEK_END);
+int verify_knownhost(ssh_session session)
+{
+    enum ssh_known_hosts_e state;
+    unsigned char *hash = NULL;
+    ssh_key srv_pubkey = NULL;
+    size_t hlen;
+    char buf[10];
+    char *hexa;
+    char *p;
+    int cmp;
+    int rc;
+ 
+    rc = ssh_get_server_publickey(session, &srv_pubkey);
+    if (rc < 0) {
+        return -1;
+    }
+ 
+    rc = ssh_get_publickey_hash(srv_pubkey,
+                                SSH_PUBLICKEY_HASH_SHA1,
+                                &hash,
+                                &hlen);
+    ssh_key_free(srv_pubkey);
+    if (rc < 0) {
+        return -1;
+    }
+ 
+    state = ssh_session_is_known_server(session);
+    switch (state) {
+        case SSH_KNOWN_HOSTS_OK:
+            /* OK */
+ 
+            break;
+        case SSH_KNOWN_HOSTS_CHANGED:
+            fprintf(stderr, "Host key for server changed: it is now:\n");
+            ssh_print_hexa("Public key hash", hash, hlen);
+            fprintf(stderr, "For security reasons, connection will be stopped\n");
+            ssh_clean_pubkey_hash(&hash);
+ 
+            return -1;
+        case SSH_KNOWN_HOSTS_OTHER:
+            fprintf(stderr, "The host key for this server was not found but an other"
+                    "type of key exists.\n");
+            fprintf(stderr, "An attacker might change the default server key to"
+                    "confuse your client into thinking the key does not exist\n");
+            ssh_clean_pubkey_hash(&hash);
+ 
+            return -1;
+        case SSH_KNOWN_HOSTS_NOT_FOUND:
+            fprintf(stderr, "Could not find known host file.\n");
+            fprintf(stderr, "If you accept the host key here, the file will be"
+                    "automatically created.\n");
+ 
+            /* FALL THROUGH to SSH_SERVER_NOT_KNOWN behavior */
+ 
+        case SSH_KNOWN_HOSTS_UNKNOWN:
+            hexa = ssh_get_hexa(hash, hlen);
+            fprintf(stderr,"The server is unknown. Do you trust the host key?\n");
+            fprintf(stderr, "Public key hash: %s\n", hexa);
+            ssh_string_free_char(hexa);
+            ssh_clean_pubkey_hash(&hash);
+            p = fgets(buf, sizeof(buf), stdin);
+            if (p == NULL) {
+                return -1;
+            }
+ 
+            cmp = strncasecmp(buf, "yes", 3);
+            if (cmp != 0) {
+                return -1;
+            }
+ 
+            rc = ssh_session_update_known_hosts(session);
+            if (rc < 0) {
+                fprintf(stderr, "Error %s\n", strerror(errno));
+                return -1;
+            }
+ 
+            break;
+        case SSH_KNOWN_HOSTS_ERROR:
+            fprintf(stderr, "Error %s", ssh_get_error(session));
+            ssh_clean_pubkey_hash(&hash);
+            return -1;
+    }
+ 
+    ssh_clean_pubkey_hash(&hash);
+    return 0;
+}
 
-			/* Save the host's fingerprint to the known hosts file */
-			fwrite(&fprint, sizeof(fprint), 1, fp);
-			fclose(fp);
-			return 0;
-		}
-	}
-
-	fprintf(stderr, " [UNKNOWN HOST]\n");
-
-	/* Create new known hosts file */
-	fp = fopen(KNOWNHOSTS, "wb");
-	if (fp == NULL) {
-		fprintf(stderr, "[-] Unable to create an OTW known hosts file.\n");
-		return 1;
-	}
-
-	/* Save the host's fingerprint to the known hosts file */
-	fwrite(&fprint, sizeof(fprint), 1, fp);
-	fclose(fp);
-
-	return 0;
+int show_remote_processes(ssh_session session)
+{
+  ssh_channel channel;
+  int rc;
+  char buffer[256];
+  int nbytes;
+ 
+  channel = ssh_channel_new(session);
+  if (channel == NULL)
+    return SSH_ERROR;
+ 
+  rc = ssh_channel_open_session(channel);
+  if (rc != SSH_OK)
+  {
+    ssh_channel_free(channel);
+    return rc;
+  }
+ 
+  rc = ssh_channel_request_exec(channel, "ps aux");
+  if (rc != SSH_OK)
+  {
+    ssh_channel_close(channel);
+    ssh_channel_free(channel);
+    return rc;
+  }
+ 
+  nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+  while (nbytes > 0)
+  {
+    if (write(1, buffer, nbytes) != (unsigned int) nbytes)
+    {
+      ssh_channel_close(channel);
+      ssh_channel_free(channel);
+      return SSH_ERROR;
+    }
+    nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+  }
+ 
+  if (nbytes < 0)
+  {
+    ssh_channel_close(channel);
+    ssh_channel_free(channel);
+    return SSH_ERROR;
+  }
+ 
+  ssh_channel_send_eof(channel);
+  ssh_channel_close(channel);
+  ssh_channel_free(channel);
+ 
+  return SSH_OK;
 }

@@ -63,7 +63,7 @@ print_level(level_t *level)
 	printf("game_name..................%s\n", level->gamename);
 	printf("password...................%s\n", level->pass);
 	printf("hostname...................%s\n", hostname);
-	printf("port.......................%s\n", level->port);
+	printf("port.......................%"PRIu32"\n", level->port);
 	printf("is_password_saved..........%s\n", level->is_pass_saved ? "YES" : "NO");
 	printf("is_level_complete..........%s\n", level->is_level_complete ? "YES" : "NO");
 	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");

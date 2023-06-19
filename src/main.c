@@ -39,7 +39,7 @@ main(int argc, char **argv)
 	}
 
 	/* Connect to the level */
-	connect_to_game(level, all_levels);
+	connect_to_level(level, all_levels);
 
 	exit(EXIT_SUCCESS);
 }

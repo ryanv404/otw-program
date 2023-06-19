@@ -25,10 +25,10 @@ level_t **create_new_datafile(void);
 level_t **init_data_structs(void);
 
 const init_level_t init_levels[TOTAL_GAMES] = {
-	{"bandit",  "2220", 34}, {"natas",      "0", 34}, {"leviathan",  "2223", 7},
-	{"krypton", "2231", 7},  {"narnia",  "2226", 9},  {"behemoth",   "2221", 8},
-	{"utumno",  "2227", 8},  {"maze",    "2225", 9},  {"vortex",     "2228", 27},
-	{"manpage", "2224", 7},  {"drifter", "2230", 15}, {"formulaone", "2223", 6}
+	{"bandit",  2220, 34}, {"natas",      0, 34}, {"leviathan",  2223,  7},
+	{"krypton", 2231,  7}, {"narnia",  2226,  9}, {"behemoth",   2221,  8},
+	{"utumno",  2227,  8}, {"maze",    2225,  9}, {"vortex",     2228, 27},
+	{"manpage", 2224,  7}, {"drifter", 2230, 15}, {"formulaone", 2223,  6}
 };
 
 level_t **
@@ -61,7 +61,7 @@ create_new_datafile(void)
 			/* Password */
 			strncpy(all_levels[level_index]->pass, "?", 2);
 			/* Port */
-			strncpy(all_levels[level_index]->port, init_levels[i].port, MAX_PORT_WIDTH);
+			all_levels[level_index]->port = (uint32_t) init_levels[i].port;
 			/* Is password saved */
 			all_levels[level_index]->is_pass_saved = (uint8_t) 0;
 			/* Is level complete */
