@@ -12,7 +12,7 @@ PARSE_OPTS.C
 [x] parse_opts()
 
 SSH_CONNECT.C
-[_] connect_to_game()
+[x] connect_to_game()
 
 UTILS.C
 [x] quit()

@@ -4,11 +4,16 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/select.h>
 #include <libssh/libssh.h>
+#include <sys/ioctl.h>
 
 #include "project/typedefs.h"
 
 #define MAX_ADDR_WIDTH		60
+#define MAX_BUFSIZE			1024
 #define DATADIR				"data"
 #define KNOWNHOSTS_FILE		"data/known_hosts"
 
@@ -16,14 +21,13 @@ int verify_knownhost(ssh_session session);
 int get_server_auth_methods(ssh_session session);
 int authenticate_password(ssh_session session, level_t *level);
 int run_remote_cmd(ssh_session session, char *cmd);
-int interactive_shell_session(ssh_session session, ssh_channel channel);
+int interactive_shell_session(ssh_session session);
 
 int
 connect_to_level(level_t *level)
 {
 	int rc;
 	char hostname[MAX_ADDR_WIDTH];
-	ssh_channel channel;
 	ssh_session my_ssh_session;
 
 	/* Open an ssh session */
@@ -63,41 +67,25 @@ connect_to_level(level_t *level)
 		goto shutdown;
 	}
 
-	channel = ssh_channel_new(my_ssh_session);
-	if (channel == NULL) {
-		rc = SSH_ERROR;
-		fprintf(stderr, "[-] Could not allocate a new ssh channel.\n");
-		goto shutdown;
-	}
-
-	/* Open channel to the ssh session */
-	rc = ssh_channel_open_session(channel);
-	if (rc != SSH_OK) {
-		ssh_channel_free(channel);
-		fprintf(stderr, "[-] Could not open an ssh session channel.\n");
-		goto shutdown;
-	}
-	
-	/* Get a pseudoterminal and start a shell on the remote machine */
-	if (interactive_shell_session(my_ssh_session, channel) > 5) {
-		ssh_channel_close(channel);
-		ssh_channel_free(channel);
+	/* Get a pty and start an interactive shell on the remote machine */
+	if (interactive_shell_session(my_ssh_session) != SSH_OK) {
+		fprintf(stderr, "[-] Received an error from the remote shell.\n");
 	}
 
 shutdown:
 	ssh_disconnect(my_ssh_session);
 	ssh_free(my_ssh_session);
 
-	fprintf(stderr, "[*] Exiting now.\n");
+	fprintf(stderr, "\n[*] Exiting now.\n");
 	return rc;
 }
 
 int
 verify_knownhost(ssh_session session)
 {
-	int rc;
+	int rc, n;
 	size_t hlen;
-	char *hexa;
+	char *hexa, *hptr;
 	char buf[10];
 	enum ssh_known_hosts_e state;
 
@@ -124,10 +112,25 @@ verify_knownhost(ssh_session session)
 		break;
 
 	case SSH_KNOWN_HOSTS_CHANGED:
+		n = 0;
 		hexa = ssh_get_hexa(hash, hlen);
-		fprintf(stderr, "[!] The public key for this server has changed!\n");
-		fprintf(stderr, "    It is now: %s\n", hexa);
-		fprintf(stderr, "    For security reasons, the connection will be closed.\n");
+		fprintf(stderr, "[!] The public key for this server has changed! It is now:\n");
+		hptr = hexa;
+		while (*hptr != '\0') {
+			if ((n != 0) && (n % 30 == 0)) {
+				fprintf(stderr, "\n");
+			}
+
+			if ((n != 0) && (n % 2 == 0) && (n % 30 != 0)) {
+				fprintf(stderr, ":");
+			}			
+			fprintf(stderr, "%02X", *hptr);
+			hptr++;
+			n++;
+		}
+		fprintf(stderr, "\n\n");
+		fprintf(stderr, "For security reasons, the connection will be closed.\n");
+		ssh_string_free_char(hexa);
 		ssh_clean_pubkey_hash(&hash);
 		return -1;
 
@@ -146,9 +149,26 @@ verify_knownhost(ssh_session session)
 		// fall through
 
 	case SSH_KNOWN_HOSTS_UNKNOWN:
+		n = 0;
 		hexa = ssh_get_hexa(hash, hlen);
-		fprintf(stderr, "[*] Server's public key hash:\n%s\n\n", hexa);
+		hptr = hexa;
+		fprintf(stderr, "[*] Server's public key hash:\n");
+		while (*hptr != '\0') {
+			if ((n != 0) && (n % 30 == 0)) {
+				fprintf(stderr, "\n");
+			}
+
+			if ((n != 0) && (n % 2 == 0) && (n % 30 != 0)) {
+				fprintf(stderr, ":");
+			}			
+			fprintf(stderr, "%02X", *hptr);
+			hptr++;
+			n++;
+		}
+
+		fprintf(stderr, "\n\n");
 		ssh_string_free_char(hexa);
+		ssh_clean_pubkey_hash(&hash);
 
 		fprintf(stderr, "[*] This server is currently unknown. Do you want to trust it?\n");
 		fprintf(stderr, "    (yes|no): ");
@@ -193,10 +213,15 @@ get_server_auth_methods(ssh_session session)
 	int method;
 
 	int len = 0;
-	char methods[4][20] = {{0}, {0}, {0}, {0}};
+	char methods[6][20] = {{0}, {0}, {0}, {0}, {0}, {0}};
 
 	ssh_userauth_none(session, NULL);
 	method = ssh_userauth_list(session, NULL);
+
+	if (method & SSH_AUTH_METHOD_NONE) {
+		strcpy(methods[len], "none");
+		len++;
+	}
 
 	if (method & SSH_AUTH_METHOD_PASSWORD) {
 		strcpy(methods[len], "password");
@@ -215,6 +240,11 @@ get_server_auth_methods(ssh_session session)
 
 	if (method & SSH_AUTH_METHOD_INTERACTIVE) {
 		strcpy(methods[len], "kbd-interactive");
+		len++;
+	}
+
+	if (method & SSH_AUTH_METHOD_GSSAPI_MIC) {
+		strcpy(methods[len], "gssapi-with-mic");
 		len++;
 	}
 
@@ -256,34 +286,52 @@ authenticate_password(ssh_session session, level_t *level)
 	} else if (rc == SSH_AUTH_ERROR) {
 		fprintf(stderr, "[-] Authentication error: %s\n", ssh_get_error(session));
 	} else {
-		fprintf(stderr, "[-] Unknown response from ssh_userauth_password.\n");
+		fprintf(stderr, "[-] Authentication did not succeed.\n");
 	}
 
 	return rc;
 }
 
 int
-interactive_shell_session(ssh_session session, ssh_channel channel)
+interactive_shell_session(ssh_session session)
 {
-	int rc;
-	int nbytes, nwritten;
-	char buffer[256];
+	fd_set fds;
+	int nbytes, nwritten, maxfd;
+	struct timeval timeout;
+	ssh_channel channel;
+	ssh_channel in_channels[2], out_channels[2];
+	struct winsize sz;
 
-	rc = ssh_channel_request_pty(channel);
-	if (rc != SSH_OK) return -1;
+	char inbuffer[MAX_BUFSIZE]  = {0};
+	char outbuffer[MAX_BUFSIZE] = {0};
 
-	rc = ssh_channel_change_pty_size(channel, 80, 24);
-	if (rc != SSH_OK) return -1;
+	/* Open channel to the ssh connection */
+	if ((channel = ssh_channel_new(session)) == NULL) {
+		return SSH_ERROR;
+	}
 
-	rc = ssh_channel_request_shell(channel);
-	if (rc != SSH_OK) return -1;
+	if (ssh_channel_open_session(channel) != SSH_OK) {
+		ssh_channel_free(channel);
+		return SSH_ERROR;
+	}
+
+	/* Get the current window size: columns & rows */
+	ioctl(0, TIOCGWINSZ, &sz);
+
+	/* Set up remote pseudo-tty and request a shell */
+	if (ssh_channel_request_pty_size(channel, "xterm-256color", sz.ws_col, sz.ws_row) != SSH_OK) {
+		ssh_channel_close(channel);
+		ssh_channel_free(channel);
+		return SSH_ERROR;
+	}
+
+	if (ssh_channel_request_shell(channel) != SSH_OK) {
+		ssh_channel_close(channel);
+		ssh_channel_free(channel);
+		return SSH_ERROR;
+	}
 
 	while (ssh_channel_is_open(channel) && !ssh_channel_is_eof(channel)) {
-		struct timeval timeout;
-		ssh_channel in_channels[2], out_channels[2];
-		fd_set fds;
-		int maxfd;
-
 		timeout.tv_sec = 30;
 		timeout.tv_usec = 0;
 
@@ -298,74 +346,46 @@ interactive_shell_session(ssh_session session, ssh_channel channel)
 		ssh_select(in_channels, out_channels, maxfd, &fds, &timeout);
 
 		if (out_channels[0] != NULL) {
-			nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
-			if (nbytes < 0) return 6;
+			nbytes = ssh_channel_read(channel, outbuffer, sizeof(outbuffer), 0);
+			if (nbytes < 0) {
+				ssh_channel_close(channel);
+				ssh_channel_free(channel);
+				return SSH_ERROR;
+			}
+
 			if (nbytes > 0) {
-				nwritten = write(1, buffer, nbytes);
-				if (nwritten != nbytes) return 6;
+				nwritten = write(1, outbuffer, nbytes);
+				if (nwritten != nbytes) {
+					ssh_channel_close(channel);
+					ssh_channel_free(channel);
+					return SSH_ERROR;
+				}
 			}
 		}
 
 		if (FD_ISSET(0, &fds)) {
-			nbytes = read(0, buffer, sizeof(buffer));
-			if (nbytes < 0) return 7;
+			nbytes = read(0, inbuffer, sizeof(inbuffer));
+			if (nbytes < 0) {
+				ssh_channel_close(channel);
+				ssh_channel_free(channel);
+				return SSH_ERROR;
+			}
+
 			if (nbytes > 0) {
-				nwritten = ssh_channel_write(channel, buffer, nbytes);
-				if (nbytes != nwritten) return 7;
+				nwritten = ssh_channel_write(channel, inbuffer, nbytes);
+				if (nbytes != nwritten) {
+					ssh_channel_close(channel);
+					ssh_channel_free(channel);
+					return SSH_ERROR;
+				}
 			}
 		}
 	}
 
-	return 8;
-}
-
-int
-run_remote_cmd(ssh_session session, char *cmd)
-{
-	int rc, nbytes;
-	char buffer[256];
-	ssh_channel channel;
-
-	channel = ssh_channel_new(session);
-	if (channel == NULL) {
-		fprintf(stderr, "[-] Error while executing remote command.\n");
-		return SSH_ERROR;
-	}
-
-	rc = ssh_channel_open_session(channel);
-	if (rc != SSH_OK) {
-		fprintf(stderr, "[-] Error while executing remote command.\n");
-		ssh_channel_free(channel);
-		return rc;
-	}
-
-	rc = ssh_channel_request_exec(channel, cmd);
-	if (rc != SSH_OK) {
-		fprintf(stderr, "[-] Error while executing remote command.\n");
+	if (ssh_channel_is_open(channel)) {
 		ssh_channel_close(channel);
-		ssh_channel_free(channel);
-		return rc;
 	}
 
-	nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
-	while (nbytes > 0) {
-		if (write(1, buffer, nbytes) != (unsigned int) nbytes) {
-			ssh_channel_close(channel);
-			ssh_channel_free(channel);
-			return SSH_ERROR;
-		}
-		nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
-	}
-
-	if (nbytes < 0) {
-		ssh_channel_close(channel);
-		ssh_channel_free(channel);
-		return SSH_ERROR;
-	}
-
-	ssh_channel_send_eof(channel);
-	ssh_channel_close(channel);
 	ssh_channel_free(channel);
-
 	return SSH_OK;
 }
