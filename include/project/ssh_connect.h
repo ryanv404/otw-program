@@ -3,6 +3,6 @@
 
 #include "project/typedefs.h"
 
-int connect_to_level(level_t *level, level_t **all_levels);
+int connect_to_level(level_t *level);
 
 #endif /* _MY_SSH_CONNECT_H */

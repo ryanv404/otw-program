@@ -39,7 +39,9 @@ main(int argc, char **argv)
 	}
 
 	/* Connect to the level */
-	connect_to_level(level, all_levels);
+	free_levels(all_levels);
+	connect_to_level(level);
 
+	free(level);
 	exit(EXIT_SUCCESS);
 }

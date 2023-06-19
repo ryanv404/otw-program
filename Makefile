@@ -9,19 +9,17 @@ BINDIR    := bin
 DEPDIR    := $(BUILDDIR)/.deps
 
 SRCEXT    := c
-DATAEXT   := dat
-
-DATAFILES := otw_data known_otw_hosts
-DATAFILES := $(patsubst %,$(DATADIR)/%.$(DATAEXT),$(DATAFILES))
 SOURCES   := $(shell find $(SRCDIR) -type f -name "*.$(SRCEXT)")
 OBJECTS   := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 DEPFILES  := $(patsubst $(SRCDIR)/%,$(DEPDIR)/%,$(SOURCES:.$(SRCEXT)=.d))
+DATAFILES := otw_data.dat known_hosts
+DATAFILES := $(patsubst %,$(DATADIR)/%,$(DATAFILES))
 TARGET    := $(BINDIR)/otw
 
-CFLAGS   := -Wall -Wextra -pedantic -Werror -g
-DEPFLAGS  = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-INC      := -Iinclude
-LIB      := -lssh
+CFLAGS    := -Wall -Wextra -pedantic -Werror -g
+DEPFLAGS   = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
+INC       := -Iinclude
+LIB       := -lssh
 
 $(TARGET): $(OBJECTS) | $(DATADIR) $(BINDIR)
 	$(CC) $^ -o $(TARGET) $(LIB)
