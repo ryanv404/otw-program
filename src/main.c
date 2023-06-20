@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "project/typedefs.h" 		/* struct typedefs */
 #include "project/datautils.h" 		/* load_data, free_levels */
@@ -38,9 +39,17 @@ main(int argc, char **argv)
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 
-	/* Connect to the level */
 	free_levels(all_levels);
-	connect_to_level(level);
+
+	/* Connect to the level */
+	if (strncmp(level->gamename, "natas", MAX_NAME_WIDTH) != 0) {
+		connect_to_level(level);
+	} else {
+		printf("\n[+] Connect to natas levels using your web browser.\n");
+		printf("    Username...%s\n", level->levelname);
+		printf("    URL........http://%s.natas.labs.overthewire.org\n\n",
+				level->levelname);
+	}
 
 	free(level);
 	exit(EXIT_SUCCESS);
