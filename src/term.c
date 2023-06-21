@@ -2,6 +2,7 @@
 
 #include "project/term.h"
 
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,19 +12,22 @@
 #include <sys/select.h>
 #include <libssh/libssh.h>
 
+#include "project/termios_flags.h"
+
+void print_ssh_session(ssh_session ses);
+void print_ssh_channel(ssh_channel chan);
+void print_ssh_socket(ssh_session ses);
+
 int
 interactive_shell_session(ssh_session session)
 {
-	fd_set fds;
-	int nbytes, nwritten, maxfd, rc;
+	int nbytes, nwritten, rc;
 	struct winsize winsz;
-	struct timeval timeout;
 	ssh_channel channel;
-	ssh_channel in_channels[2], out_channels[2];
+	struct termios old_flags, new_flags;
 
 	char inbuffer[MAX_BUFSIZE]  = {0};
 	char outbuffer[MAX_BUFSIZE] = {0};
-	// struct termios *old_flags = NULL;
 
 	/* Open channel to the ssh connection */
 	if ((channel = ssh_channel_new(session)) == NULL) {
@@ -53,19 +57,26 @@ interactive_shell_session(ssh_session session)
 		goto shutdown;
 	}
 
-	/* Set timeout */
-	timeout.tv_sec = 30;
-	timeout.tv_usec = 0;
+	print_ssh_session(ses);
+	print_ssh_channel(chan);
+	print_ssh_socket(ses);
 
-	/* Set up terminal */
-	// old_flags = (struct termios *) calloc(1, sizeof(struct termios));
-
-	//disable_echo(old_flags);
+	/* Set local stdin to raw so that input is directly passed to remote pty */
+	tcgetattr(STDIN_FILENO, &old_flags);
+	new_flags = old_flags;
+	cfmakeraw(&new_flags);
+	tcsetattr(STDIN_FILENO, TCSANOW, &new_flags);
 
 	while (ssh_channel_is_open(channel) && !ssh_channel_is_eof(channel)) {
+		struct timeval timeout;
+		ssh_channel in_channels[2], out_channels[2];
+		fd_set fds;
+		int maxfd;
+
+		timeout.tv_sec = 30;
+		timeout.tv_usec = 0;
 		in_channels[0] = channel;
 		in_channels[1] = NULL;
-
 		FD_ZERO(&fds);
 		FD_SET(0, &fds);
 		FD_SET(ssh_get_fd(session), &fds);
@@ -77,7 +88,6 @@ interactive_shell_session(ssh_session session)
 			nbytes = ssh_channel_read(channel, outbuffer, sizeof(outbuffer), 0);
 			if (nbytes < 0) {
 				rc = SSH_ERROR;
-				// tcsetattr(fileno(stdin), TCSANOW, old_flags);
 				goto shutdown;
 
 			}
@@ -86,7 +96,6 @@ interactive_shell_session(ssh_session session)
 				nwritten = write(1, outbuffer, nbytes);
 				if (nwritten != nbytes) {
 					rc = SSH_ERROR;
-					// tcsetattr(fileno(stdin), TCSANOW, old_flags);
 					goto shutdown;
 				}
 			}
@@ -96,7 +105,6 @@ interactive_shell_session(ssh_session session)
 			nbytes = read(0, inbuffer, sizeof(inbuffer));
 			if (nbytes < 0) {
 				rc = SSH_ERROR;
-				// tcsetattr(fileno(stdin), TCSANOW, old_flags);
 				goto shutdown;
 			}
 
@@ -104,15 +112,11 @@ interactive_shell_session(ssh_session session)
 				nwritten = ssh_channel_write(channel, inbuffer, nbytes);
 				if (nbytes != nwritten) {
 					rc = SSH_ERROR;
-					// tcsetattr(fileno(stdin), TCSANOW, old_flags);
 					goto shutdown;
 				}
 			}
 		}
 	}
-
-	/* Restore original terminal settings */
-	// tcsetattr(fileno(stdin), TCSANOW, old_flags);
 
 shutdown:
 
@@ -124,7 +128,8 @@ shutdown:
 		ssh_channel_free(channel);
 	}
 
-	// free(old_flags);
+	/* Restore local stdin to original settings */
+	tcsetattr(STDIN_FILENO, TCSANOW, &old_flags);
 	return rc;
 }
 
@@ -165,4 +170,34 @@ disable_echo(struct termios *flags)
 
 	free(new_flags);
 	return 0;
+}
+
+void
+print_ssh_session(ssh_session ses)
+{
+
+	printf("ssh session:\n");
+
+
+	return;
+}
+
+void
+print_ssh_channel(ssh_channel chan)
+{
+
+	printf("ssh channel:\n");
+
+
+	return;
+}
+
+void
+print_ssh_socket(ssh_session ses)
+{
+
+	printf("ssh socket:\n");
+
+
+	return;
 }
