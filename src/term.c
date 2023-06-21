@@ -1,8 +1,8 @@
 /* term.c - Sets up shell on remote pseudoterminal */
 
+#define _DEFAULT_SOURCE
 #include "project/term.h"
 
-#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,12 +11,6 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <libssh/libssh.h>
-
-#include "project/termios_flags.h"
-
-void print_ssh_session(ssh_session ses);
-void print_ssh_channel(ssh_channel chan);
-void print_ssh_socket(ssh_session ses);
 
 int
 interactive_shell_session(ssh_session session)
@@ -56,10 +50,6 @@ interactive_shell_session(ssh_session session)
 	if ((rc = ssh_channel_request_shell(channel)) != SSH_OK) {
 		goto shutdown;
 	}
-
-	print_ssh_session(ses);
-	print_ssh_channel(chan);
-	print_ssh_socket(ses);
 
 	/* Set local stdin to raw so that input is directly passed to remote pty */
 	tcgetattr(STDIN_FILENO, &old_flags);
@@ -131,73 +121,4 @@ shutdown:
 	/* Restore local stdin to original settings */
 	tcsetattr(STDIN_FILENO, TCSANOW, &old_flags);
 	return rc;
-}
-
-int
-disable_echo(struct termios *flags)
-{
-	int retval;
-
-	struct termios *new_flags = (struct termios *) calloc(1, sizeof(struct termios));
-
-	/* Get the current terminal settings */
-	tcgetattr(fileno(stdin), flags);
-	memcpy(new_flags, flags, sizeof(struct termios));
-
-	/* Turn off local echo, but pass the newlines through */
-	new_flags->c_lflag &= ~ECHO;
-	new_flags->c_lflag |=  ECHONL;
-
-	retval = tcsetattr(fileno(stdin), TCSAFLUSH, new_flags);
-	if (retval != 0) {
-		free(new_flags);
-		fprintf(stderr, "Failed to set attributes\n");
-		return -1;
-	}
-
-	tcgetattr(fileno(stdin), new_flags);
-	if (new_flags->c_lflag & ECHO) {
-		free(new_flags);
-		fprintf(stderr, "Failed to turn off ECHO\n");
-		return -1;
-	}
-
-	if (!(new_flags->c_lflag & ECHONL)) {
-		free(new_flags);
-		fprintf(stderr, "Failed to turn on ECHONL\n");
-		return -1;
-	}
-
-	free(new_flags);
-	return 0;
-}
-
-void
-print_ssh_session(ssh_session ses)
-{
-
-	printf("ssh session:\n");
-
-
-	return;
-}
-
-void
-print_ssh_channel(ssh_channel chan)
-{
-
-	printf("ssh channel:\n");
-
-
-	return;
-}
-
-void
-print_ssh_socket(ssh_session ses)
-{
-
-	printf("ssh socket:\n");
-
-
-	return;
 }

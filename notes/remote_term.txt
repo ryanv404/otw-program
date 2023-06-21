@@ -1,23 +1,7 @@
-[R] speed 38400 baud; rows 24; columns  80; line = 0;
-[L] speed 38400 baud; rows 27; columns 126; line = 0;
-[R] intr = ^C; quit = ^\; erase = ^?; kill = ^U; eof = ^D; eol = <undef>;
-[L] intr = ^C; quit = ^\; erase = ^?; kill = ^U; eof = ^D; eol = <undef>;
-[R] eol2 = <undef>; swtch = <undef>; start = ^Q; stop = ^S; susp = ^Z; rprnt = ^R;
-[L] eol2 = <undef>; swtch = <undef>; start = ^Q; stop = ^S; susp = ^Z; rprnt = ^R;
-[R] werase = ^W; lnext = ^V; discard = ^O; min = 1; time = 0;
-[L] werase = ^W; lnext = ^V; discard = ^O; min = 1; time = 0;
-[R] -parenb -parodd -cmspar cs8 -hupcl -cstopb cread -clocal -crtscts
-[L] -parenb -parodd -cmspar cs8 -hupcl -cstopb cread -clocal -crtscts
 [R] -ignbrk -brkint -ignpar -parmrk -inpck -istrip -inlcr -igncr icrnl ixon -ixoff
 [L] -ignbrk  brkint  ignpar -parmrk -inpck -istrip -inlcr -igncr icrnl ixon -ixoff
 [R] -iuclc -ixany -imaxbel -iutf8
 [L] -iuclc -ixany  imaxbel  iutf8
-[R] opost -olcuc -ocrnl onlcr -onocr -onlret -ofill -ofdel nl0 cr0 tab0 bs0 vt0 ff0
-[L] opost -olcuc -ocrnl onlcr -onocr -onlret -ofill -ofdel nl0 cr0 tab0 bs0 vt0 ff0
-[R] isig icanon iexten echo echoe echok -echonl -noflsh -xcase -tostop -echoprt
-[L] isig icanon iexten echo echoe echok -echonl -noflsh -xcase -tostop -echoprt
-[R] echoctl echoke -flusho -extproc
-[L] echoctl echoke -flusho -extproc
 
 [REMOTE] rows 24; columns  80; -brkint; -ignpar; -imaxbel; -iutf8
 [LOCAL ] rows 27; columns 126;  brkint;  ignpar;  imaxbel;  iutf8
