@@ -1,7 +1,0 @@
-[R] -ignbrk -brkint -ignpar -parmrk -inpck -istrip -inlcr -igncr icrnl ixon -ixoff
-[L] -ignbrk  brkint  ignpar -parmrk -inpck -istrip -inlcr -igncr icrnl ixon -ixoff
-[R] -iuclc -ixany -imaxbel -iutf8
-[L] -iuclc -ixany  imaxbel  iutf8
-
-[REMOTE] rows 24; columns  80; -brkint; -ignpar; -imaxbel; -iutf8
-[LOCAL ] rows 27; columns 126;  brkint;  ignpar;  imaxbel;  iutf8

@@ -1,7 +1,7 @@
-data/*.dat
-cmake
+.vscode/
 build/
 bin/
-tests/cmocka_examples/
-.vscode/
+cmake/
+data/
 notes/
+tests/cmocka_examples/
