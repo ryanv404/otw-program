@@ -1,4 +1,7 @@
 data/*.dat
+cmake
 build/
 bin/
+tests/cmocka_examples/
 .vscode/
+notes/

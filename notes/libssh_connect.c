@@ -1,26 +1,15 @@
 /* ssh_connect.c */
 
-#include "config.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/time.h>
-
-#ifdef HAVE_TERMIOS_H
 #include <termios.h>
-#endif
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#ifdef HAVE_PTY_H
 #include <pty.h>
-#endif
-
-#include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -29,19 +18,17 @@
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 
-
 #include "examples_common.h"
+
 #define MAXCMD 10
 
 static char *host = NULL;
 static char *user = NULL;
 static char *cmds[MAXCMD];
 static char *config_file = NULL;
-static struct termios terminal;
-
 static char *pcap_file = NULL;
-
 static char *proxycommand;
+static struct termios terminal;
 
 static int auth_callback(const char *prompt,
                          char *buf,
@@ -77,24 +64,19 @@ static void add_cmd(char *cmd)
 static void usage(void)
 {
     fprintf(stderr,
-            "Usage : ssh [options] [login@]hostname\n"
-            "sample client - libssh-%s\n"
-            "Options :\n"
-            "  -l user : log in as user\n"
-            "  -p port : connect to port\n"
-            "  -d : use DSS to verify host public key\n"
-            "  -r : use RSA to verify host public key\n"
-            "  -F file : parse configuration file instead of default one\n"
-#ifdef WITH_PCAP
-            "  -P file : create a pcap debugging file\n"
-#endif
-#ifndef _WIN32
+            "usage : ssh [options] [login@]hostname\n\n"
+            "options :\n"
+            "  -l user   log in as user\n"
+            "  -p port   connect to port\n"
+            "  -d        use DSS to verify host public key\n"
+            "  -r        use RSA to verify host public key\n"
+            "  -F file   parse configuration file instead of default one\n"
+            "  -P file   create a pcap debugging file\n"
             "  -T proxycommand : command to execute as a socket proxy\n"
-#endif
             "\n",
             ssh_version(0));
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 static int opts(int argc, char **argv)
@@ -109,11 +91,9 @@ static int opts(int argc, char **argv)
         case 'F':
             config_file = optarg;
             break;
-#ifndef _WIN32
         case 'T':
             proxycommand = optarg;
             break;
-#endif
         default:
             fprintf(stderr, "Unknown option %c\n", optopt);
             return -1;
@@ -134,7 +114,6 @@ static int opts(int argc, char **argv)
     return 0;
 }
 
-#ifndef HAVE_CFMAKERAW
 static void cfmakeraw(struct termios *termios_p)
 {
     termios_p->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
@@ -143,15 +122,13 @@ static void cfmakeraw(struct termios *termios_p)
     termios_p->c_cflag &= ~(CSIZE|PARENB);
     termios_p->c_cflag |= CS8;
 }
-#endif
-
 
 static void do_cleanup(int i)
 {
   /* unused variable */
   (void) i;
 
-  tcsetattr(0, TCSANOW, &terminal);
+  tcsetattr(STDIN_FILENO, TCSANOW, &terminal);
 }
 
 static void do_exit(int i)
@@ -160,24 +137,20 @@ static void do_exit(int i)
     (void) i;
 
     do_cleanup(0);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 static int signal_delayed = 0;
 
-#ifdef SIGWINCH
 static void sigwindowchanged(int i)
 {
     (void) i;
     signal_delayed = 1;
 }
-#endif
 
 static void setsignal(void)
 {
-#ifdef SIGWINCH
     signal(SIGWINCH, sigwindowchanged);
-#endif
     signal_delayed = 0;
 }
 
@@ -185,9 +158,10 @@ static void sizechanged(ssh_channel chan)
 {
     struct winsize win = {
         .ws_row = 0,
+		.ws_col = 0
     };
 
-    ioctl(1, TIOCGWINSZ, &win);
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &win);
     ssh_channel_change_pty_size(chan,win.ws_col, win.ws_row);
     setsignal();
 }
@@ -425,65 +399,19 @@ int main(int argc, char **argv)
 
     return 0;
 }
-/*
-Copyright 2009 Aris Adamantiadis
 
-This file is part of the SSH Library
-
-You are free to copy this file, modify it in any way, consider it being public
-domain. This does not apply to the rest of the library though, but it is
-allowed to cut-and-paste working code from this file to any license of
-program.
-The goal is to show the API in action. It's not a reference on how terminal
-clients must be made or how a client should react.
-*/
-#ifndef EXAMPLES_COMMON_H_
-#define EXAMPLES_COMMON_H_
-
-#include <libssh/libssh.h>
-
-/** Zero a structure */
-#define ZERO_STRUCT(x) memset((char *)&(x), 0, sizeof(x))
-
-int authenticate_console(ssh_session session);
-int authenticate_kbdint(ssh_session session, const char *password);
-int verify_knownhost(ssh_session session);
-ssh_session connect_ssh(const char *hostname, const char *user, int verbosity);
-
-#endif /* EXAMPLES_COMMON_H_ */
-/*
-Copyright 2010 Aris Adamantiadis
-
-This file is part of the SSH Library
-
-You are free to copy this file, modify it in any way, consider it being public
-domain. This does not apply to the rest of the library though, but it is
-allowed to cut-and-paste working code from this file to any license of
-program.
-The goal is to show the API in action. It's not a reference on how terminal
-clients must be made or how a client should react.
-*/
-
-#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef HAVE_TERMIOS_H
 #include <termios.h>
-#endif
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-
 #include <sys/select.h>
 #include <sys/time.h>
-
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <libssh/callbacks.h>
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
-
 #include <fcntl.h>
 
 #include "examples_common.h"
@@ -496,10 +424,8 @@ char *host;
 const char *desthost="localhost";
 const char *port="22";
 
-#ifdef WITH_PCAP
 #include <libssh/pcap.h>
 char *pcap_file=NULL;
-#endif
 
 static void usage(void)
 {
@@ -511,11 +437,9 @@ static int opts(int argc, char **argv){
     int i;
     while((i=getopt(argc,argv,"P:"))!=-1){
         switch(i){
-#ifdef WITH_PCAP
         	case 'P':
         		pcap_file=optarg;
         		break;
-#endif
             default:
                 fprintf(stderr,"unknown option %c\n",optopt);
                 usage();
@@ -674,7 +598,6 @@ static int client(ssh_session session){
   return 0;
 }
 
-#ifdef WITH_PCAP
 ssh_pcap_file pcap;
 void set_pcap(ssh_session session);
 void set_pcap(ssh_session session){
@@ -696,7 +619,6 @@ void cleanup_pcap(void)
 	ssh_pcap_file_free(pcap);
 	pcap = NULL;
 }
-#endif
 
 int main(int argc, char **argv){
     ssh_session session;
@@ -709,45 +631,23 @@ int main(int argc, char **argv){
       usage();
     }
     opts(argc,argv);
-#ifdef WITH_PCAP
     set_pcap(session);
-#endif
     client(session);
 
     ssh_disconnect(session);
     ssh_free(session);
-#ifdef WITH_PCAP
     cleanup_pcap();
-#endif
 
     ssh_finalize();
 
     return 0;
 }
-/*
- * authentication.c
- * This file contains an example of how to do an authentication to a
- * SSH server using libssh
- */
-
-/*
-Copyright 2003-2009 Aris Adamantiadis
-
-This file is part of the SSH Library
-
-You are free to copy this file, modify it in any way, consider it being public
-domain. This does not apply to the rest of the library though, but it is
-allowed to cut-and-paste working code from this file to any license of
-program.
-The goal is to show the API in action. It's not a reference on how terminal
-clients must be made or how a client should react.
- */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <libssh/libssh.h>
+
 #include "examples_common.h"
 
 int authenticate_kbdint(ssh_session session, const char *password)
@@ -858,7 +758,6 @@ static int auth_keyfile(ssh_session session, char* keyfile)
     return rc;
 }
 
-
 static void error(ssh_session session)
 {
     fprintf(stderr,"Authentication failed: %s\n",ssh_get_error(session));
@@ -965,28 +864,11 @@ int authenticate_console(ssh_session session)
 
     return rc;
 }
-/*
- * connect_ssh.c
- * This file contains an example of how to connect to a
- * SSH server using libssh
- */
 
-/*
-Copyright 2009 Aris Adamantiadis
-
-This file is part of the SSH Library
-
-You are free to copy this file, modify it in any way, consider it being public
-domain. This does not apply to the rest of the library though, but it is
-allowed to cut-and-paste working code from this file to any license of
-program.
-The goal is to show the API in action. It's not a reference on how terminal
-clients must be made or how a client should react.
- */
-
-#include <libssh/libssh.h>
-#include "examples_common.h"
 #include <stdio.h>
+#include <libssh/libssh.h>
+
+#include "examples_common.h"
 
 ssh_session connect_ssh(const char *host, const char *user,int verbosity){
   ssh_session session;
@@ -1032,39 +914,14 @@ ssh_session connect_ssh(const char *host, const char *user,int verbosity){
   ssh_free(session);
   return NULL;
 }
-/*
- * knownhosts.c
- * This file contains an example of how verify the identity of a
- * SSH server using libssh
- */
-
-/*
-Copyright 2003-2009 Aris Adamantiadis
-
-This file is part of the SSH Library
-
-You are free to copy this file, modify it in any way, consider it being public
-domain. This does not apply to the rest of the library though, but it is
-allowed to cut-and-paste working code from this file to any license of
-program.
-The goal is to show the API in action. It's not a reference on how terminal
-clients must be made or how a client should react.
- */
-
-#include "config.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "libssh/priv.h"
 #include <libssh/libssh.h>
-#include "examples_common.h"
 
-#ifdef _WIN32
-#define strncasecmp _strnicmp
-#endif
+#include "examples_common.h"
 
 int verify_knownhost(ssh_session session)
 {
