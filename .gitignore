@@ -1,7 +1,5 @@
 .vscode/
 build/
 bin/
-cmake/
 data/
 notes/
-tests/cmocka_examples/
