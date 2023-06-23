@@ -1,3 +1,5 @@
+/* libssh_client.c */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,17 +23,11 @@
 
 #include "examples_common.h"
 
-#define MAXCMD 		10
-
-static char *cmds[MAXCMD];
 static struct termios terminal;
-static ssh_pcap_file pcap;
 
 static char *host = NULL;
 static char *user = NULL;
-static char *pcap_file = NULL;
 static int signal_delayed = 0;
-static char *proxycommand = NULL;
 
 static void
 usage(void)
@@ -40,44 +36,11 @@ usage(void)
 			"usage: ssh [options] [login@]hostname\n\n"
 			"    -r          Use RSA to verify host public key.\n"
 			"    -l user     Log in as user.\n"
-			"    -p portnum  Connect to port `portnum`.\n"
-			"    -P file     Create a pcap debugging file.\n"
-			"    -T proxycommand\n"
-			"                Command to execute as a socket proxy.\n\n"
+			"    -p portnum  Connect to port `portnum`.\n\n"
 			"sample SSH client - libssh-%s\n",
 			ssh_version(0));
 
 	exit(EXIT_SUCCESS);
-}
-
-static int
-opts(int argc, char **argv)
-{
-	int i;
-
-	while ((i = getopt(argc, argv, "T:P:")) != -1) {
-		switch (i) {
-		case 'P':
-			pcap_file = optarg;
-			break;
-		case 'T':
-			proxycommand = optarg;
-			break;
-		default:
-			fprintf(stderr, "Unknown option %c\n", optopt);
-			return -1;
-		}
-	}
-
-	if (optind < argc) {
-		host = argv[optind++];
-	}
-
-	if (host == NULL) {
-		return -1;
-	}
-
-	return 0;
 }
 
 static void
@@ -87,6 +50,7 @@ do_cleanup(int i)
   (void) i;
 
   tcsetattr(STDIN_FILENO, TCSANOW, &terminal);
+  return;
 }
 
 static void
@@ -104,6 +68,8 @@ sigwindowchanged(int i)
 {
 	(void) i;
 	signal_delayed = 1;
+	
+	return;
 }
 
 static void
@@ -111,6 +77,8 @@ setsignal(void)
 {
 	signal(SIGWINCH, sigwindowchanged);
 	signal_delayed = 0;
+	
+	return;
 }
 
 static void
@@ -125,10 +93,11 @@ sizechanged(ssh_channel chan)
 	ssh_channel_request_pty_size(chan, "xterm-256color", win.ws_col, win.ws_row);
 	
 	setsignal();
+	return;
 }
 
 static void
-select_loop(ssh_session session,ssh_channel channel)
+select_loop(ssh_session session, ssh_channel channel)
 {
 	int rc;
 	ssh_connector connector_in, connector_out, connector_err;
@@ -174,6 +143,7 @@ select_loop(ssh_session session,ssh_channel channel)
 	ssh_connector_free(connector_err);
 
 	ssh_event_free(event);
+	return;
 }
 
 static void
@@ -185,9 +155,7 @@ shell(ssh_session session)
 	int interactive = isatty(0);
 
 	channel = ssh_channel_new(session);
-	if (channel == NULL) {
-		return;
-	}
+	if (channel == NULL) return;
 
 	if (interactive) {
 		tcgetattr(STDIN_FILENO, &terminal_local);
@@ -220,11 +188,10 @@ shell(ssh_session session)
 	signal(SIGTERM, do_cleanup);
 	select_loop(session, channel);
 	
-	if (interactive) {
-		do_cleanup(0);
-	}
+	if (interactive) do_cleanup(0);
 	
 	ssh_channel_free(channel);
+	return;
 }
 
 static int
@@ -243,12 +210,6 @@ client(ssh_session session)
 	
 	if (ssh_options_set(session, SSH_OPTIONS_HOST, host) < 0) {
 		return -1;
-	}
-
-	if (proxycommand != NULL) {
-		if (ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, proxycommand)) {
-			return -1;
-		}
 	}
 
 	if (ssh_connect(session)) {
@@ -278,38 +239,6 @@ client(ssh_session session)
 	return 0;
 }
 
-static void
-set_pcap(ssh_session session)
-{
-	if (pcap_file == NULL) {
-		return;
-	}
-
-	pcap = ssh_pcap_file_new();
-	if (pcap == NULL) {
-		return;
-	}
-
-	if (ssh_pcap_file_open(pcap, pcap_file) == SSH_ERROR) {
-		printf("Error opening pcap file\n");
-		ssh_pcap_file_free(pcap);
-		pcap = NULL;
-		return;
-	}
-
-	ssh_set_pcap_file(session, pcap);
-}
-
-static void
-cleanup_pcap(void)
-{
-	if (pcap != NULL) {
-		ssh_pcap_file_free(pcap);
-	}
-
-	pcap = NULL;
-}
-
 int
 main(int argc, char **argv)
 {
@@ -318,7 +247,7 @@ main(int argc, char **argv)
 	ssh_init();
 	session = ssh_new();
 
-	if (ssh_options_getopt(session, &argc, argv) || opts(argc, argv)) {
+	if (ssh_options_getopt(session, &argc, argv)) {
 		fprintf(stderr, "Error parsing the command line: %s\n",
 				ssh_get_error(session));
 		ssh_free(session);
@@ -328,14 +257,11 @@ main(int argc, char **argv)
 
 	signal(SIGTERM, do_exit);
 
-	set_pcap(session);
 	client(session);
 
 	ssh_disconnect(session);
 	ssh_free(session);
 
-	cleanup_pcap();
 	ssh_finalize();
-
 	return EXIT_SUCCESS;
 }

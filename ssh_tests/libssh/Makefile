@@ -6,15 +6,15 @@ BUILDDIR  := build
 DEPDIR    := $(BUILDDIR)/.deps
 
 SRCEXT    := c
-SOURCES   := authentication.c knownhosts.c connect_ssh.c ssh_client.c
+SOURCES   := authentication.c knownhosts.c connect_ssh.c libssh_client.c
 OBJECTS   := $(patsubst %,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 DEPFILES  := $(patsubst %,$(DEPDIR)/%,$(SOURCES:.$(SRCEXT)=.d))
+TARGET    := sshclient
 
 CFLAGS    := -Wall -Wextra -pedantic -Werror -g
 DEPFLAGS   = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-INC       := -I.
+INC       := -I. -I../../include
 LIB       := -lssh
-TARGET    := sshclient
 
 $(TARGET): $(OBJECTS)
 	$(CC) $^ -o $(TARGET) $(LIB)

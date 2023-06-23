@@ -10,14 +10,14 @@ typedef struct level_t {
     char 		levelname[MAX_NAME_WIDTH];
     char 		gamename[MAX_NAME_WIDTH];
     char 		pass[MAX_PASS_WIDTH];
-    uint32_t	port;
+    char		port[6];
 	uint8_t		is_pass_saved;
     uint8_t		is_level_complete;
 } level_t;
 
 typedef struct init_level_t {
     char		gamename[MAX_NAME_WIDTH];
-    uint32_t	port;
+    char		port[6];
     int			maxlevel;
 } init_level_t;
 
