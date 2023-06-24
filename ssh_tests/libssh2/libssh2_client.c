@@ -5,31 +5,28 @@
 #include <unistd.h>
 #include <string.h>
 #include <strings.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <netdb.h>
-#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netdb.h>
+#include <poll.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <sys/ioctl.h>
 
 #include <libssh2.h>
 
-// #include "project/datautils.h"
 #include "project/typedefs.h"
+// #include "project/datautils.h"
 // #include "project/utils.h"
 // #include "project/validate.h"
 
 #define KNOWNHOSTS			"data/otw_knownhosts"
 #define MAX_ADDR_WIDTH		60
 #define SHA256_FP_WIDTH		32
-#define BUFSIZE 			32000
+#define BUFSIZE 			1024
 
-#define errExit(msg)	 do { 	perror(msg);		 \
-								return EXIT_FAILURE; \
-							} while (0)
 static level_t lvl = {
 	.levelname = "bandit0",
 	.gamename  = "bandit",
@@ -44,9 +41,6 @@ static void get_level_pass(level_t *level);
 static void save_correct_pass(level_t *level, level_t **all_levels);
 static void clear_bad_pass(level_t *level, level_t **all_levels);
 static void print_hex_fingerprint(const char *buf, int len);
-static int waitsocket(libssh2_socket_t socket_fd, LIBSSH2_SESSION *session);
-static int ssh2_echo(LIBSSH2_SESSION *session, LIBSSH2_CHANNEL *channel, libssh2_socket_t sock);
-int poll_example(libssh2_socket_t sock);
 
 int
 main(int argc, char **argv)
@@ -55,16 +49,24 @@ main(int argc, char **argv)
 	(void) argc;
 	(void) argv;
 
-	int s, rc;
+	int rc, written, old_flags, new_flags;
 	libssh2_socket_t sock;
 	struct addrinfo hints;
+	struct termios oldtc;
+	struct termios tc;
 	char hostname[MAX_ADDR_WIDTH];
 
 	char *userauthlist		 = NULL;
 	const char *fingerprint	 = NULL;
 	struct addrinfo *res	 = NULL;
-	LIBSSH2_CHANNEL *channel = NULL;
 	LIBSSH2_SESSION *session = NULL;
+	LIBSSH2_CHANNEL *channel = NULL;
+
+	char inputbuf[BUFSIZE];
+	char commandbuf[BUFSIZE];
+	
+	const char numfds = 2;
+	struct pollfd pfds[numfds];
 
 	level_t *level       = &lvl;
 	level_t **all_levels = NULL;
@@ -92,9 +94,9 @@ main(int argc, char **argv)
 	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
 
 	/* Get TCP IPv4 address matching host:port */
-	s = getaddrinfo(hostname, level->port, &hints, &res);
-	if (s != 0) {
-		fprintf(stderr, "[-] getaddrinfo error: %s\n", gai_strerror(s));
+	rc = getaddrinfo(hostname, level->port, &hints, &res);
+	if (rc != 0) {
+		fprintf(stderr, "[-] getaddrinfo error: %s\n", gai_strerror(rc));
 		rc = 1;
 		goto shutdown;
 	}
@@ -133,7 +135,8 @@ main(int argc, char **argv)
 	}
 
 	/* Check the server's hostkey against our saved known hosts */
-	if (check_for_known_host(fingerprint, level) != 0) {
+	rc = check_for_known_host(fingerprint, level);
+	if (rc != 0) {
 		rc = 1;
 		goto shutdown;
 	}
@@ -148,11 +151,16 @@ main(int argc, char **argv)
 		goto shutdown;
 	}
 
-	/* Get pass from user if it's not stored */
-	if (!level->is_pass_saved) get_level_pass(level);
-
 	/* Authenticate with password */
-	if (libssh2_userauth_password(session, level->levelname, level->pass) != 0) {
+	get_level_pass(level);
+
+	if (libssh2_userauth_password(session, level->levelname, level->pass) == 0) {
+		/* Store correct password if it's not already stored */
+		fprintf(stderr, "[+] Logged in as %s.\n", level->levelname);
+		if (!level->is_pass_saved) {
+			save_correct_pass(level, all_levels);
+		}
+	} else {
 		fprintf(stderr, "[-] Password authentication failed.\n");
 		if (level->is_pass_saved) {
 			/* Don't keep an incorrect password stored */
@@ -162,79 +170,157 @@ main(int argc, char **argv)
 		goto shutdown;
 	}
 
-	/* Password was correct; now we should store it if it's not already stored */
-	if (!level->is_pass_saved) {
-		save_correct_pass(level, all_levels);
-	}
-
-    /* Exec non-blocking on the remote host */
-	do {
-		channel = libssh2_channel_open_session(session);
-		if ((channel) || (libssh2_session_last_error(session, NULL, NULL, 0) != LIBSSH2_ERROR_EAGAIN)) {
-			break;
-		}
-
-		waitsocket(sock, session);
-	} while (1);
-
+	/* Allocate a channel to exchange data with the server */
+	channel = libssh2_channel_open_session(session);
 	if (!channel) {
 		fprintf(stderr, "[-] Unable to open a session channel.\n");
+		rc = 1;
+		goto shutdown;
 	}
 
-	/* Allocate a channel to exchange data with the server */
-//	channel = libssh2_channel_open_session(session);
-//	if (!channel) {
-//		fprintf(stderr, "[-] Unable to open a session channel.\n");
-//		rc = 1;
-//		goto shutdown;
-//	}
-
-//	/* Request a remote pty */
-//	if (libssh2_channel_request_pty(channel, "xterm-256color")) {
-//		fprintf(stderr, "[-] Request for remote pseudoterminal failed.\n");
-//		rc = 1;
-//	 	goto shutdown;
-//	}
-//
-//	/* Request a remote shell */
-//	if (libssh2_channel_shell(channel)) {
-//		fprintf(stderr, "[-] Request for remote shell failed.\n");
-//		rc = 1;
-//	 	goto shutdown;
-//	}
-
-	/* Main loop starts */
-
-	puts("[+] Got a remote shell. Starting main loop.");
-
-	ssh2_echo(session, channel, sock);
-
-	/* Main loop ends */
-
-//	rc = libssh2_channel_get_exit_status(channel);
-//
-//	if (libssh2_channel_close(channel))
-//		fprintf(stderr, "[-] Unable to close channel.\n");
-
-	if (channel) {
-		libssh2_channel_free(channel);
-		channel = NULL;
+	/* Set socket to non-blocking */
+	rc = fcntl(sock, F_SETFL, O_NONBLOCK);
+	if (rc == -1) {
+		fprintf(stderr, "[-] Failed to set socket to non-blocking.\n");
+		goto shutdown;
 	}
+
+	/* Set stdin to non-blocking */
+	old_flags = fcntl(STDIN_FILENO, F_GETFL);
+	new_flags = old_flags | O_NONBLOCK;
+	rc = fcntl(STDIN_FILENO, F_SETFL, new_flags);
+	if (rc == -1) {
+		fprintf(stderr, "[-] Failed to set stdin to non-blocking.\n");
+		goto shutdown;
+	}
+
+	/* Request a remote pty */
+	rc = libssh2_channel_request_pty(channel, "xterm-256color");
+	if (rc) {
+		fprintf(stderr, "[-] Request for remote pseudoterminal failed.\n");
+		rc = 1;
+	 	goto shutdown;
+	}
+
+	/* Request a remote shell */
+	if (libssh2_channel_shell(channel)) {
+		fprintf(stderr, "[-] Request for remote shell failed.\n");
+		rc = 1;
+	 	goto shutdown;
+	}
+
+	/* Set non-blocking mode on channel */
+	libssh2_channel_set_blocking(channel, 0);
+
+	/* Set stdin to raw mode */
+	tcgetattr(STDIN_FILENO, &oldtc);
+	tc = oldtc;
+	cfmakeraw(&tc);
+	tcsetattr(STDIN_FILENO, TCSANOW, &tc);
+
+	/* Prepare to use poll */
+	memset(pfds, 0, sizeof(struct pollfd) * numfds);
+
+	/* I/O polling loop starts */
+	do {
+		/* Declare that we need to wait while socket or stdin is not ready for reading */
+		pfds[0].fd = sock;
+		pfds[1].fd = STDIN_FILENO;
+		pfds[0].events = POLLIN;
+		pfds[1].events = POLLIN;
+		pfds[0].revents = 0;
+		pfds[1].revents = 0;
+
+		/* Polling on socket and stdin while not ready to read from it */
+		rc = poll(pfds, numfds, -1);
+		if (rc < 0) {
+			fprintf(stderr, "[-] Error while polling for I/O events.\n");
+			rc = 1;
+			goto shutdown;
+		}
+
+		if (pfds[0].revents & POLLIN) {
+			/* Read output from remote side */
+			do {
+				rc = libssh2_channel_read(channel, inputbuf, BUFSIZE);
+				printf("%s", inputbuf);
+				fflush(stdout);
+				memset(inputbuf, 0, BUFSIZE);
+			} while ((rc != LIBSSH2_ERROR_EAGAIN) && (rc > 0));
+		}
+
+		if ((rc < 0) && (rc != LIBSSH2_ERROR_EAGAIN)) {
+			fprintf(stderr, "[-] libssh2_channel_read error code %d\n", rc);
+			goto shutdown;
+		}
+
+		if (pfds[1].revents & POLLIN) {
+			/* Request for command input */
+			fgets(commandbuf, BUFSIZE - 2, stdin);
+
+			/* Write command to stdin of remote shell */
+			written = 0;
+			do {
+				rc = libssh2_channel_write(channel, commandbuf, strlen(commandbuf));
+				written += rc;
+			} while ((rc != LIBSSH2_ERROR_EAGAIN) && (rc > 0) && (written != (int) strlen(commandbuf)));
+		
+			if ((rc < 0) && (rc != LIBSSH2_ERROR_EAGAIN)) {
+				fprintf(stderr, "[-] libssh2_channel_write error code %d\n", rc);
+				goto shutdown;
+			}
+
+			memset(commandbuf, 0, BUFSIZE);
+		}
+	} while (libssh2_channel_eof(channel) == 0);
 
 shutdown:
 
-	if (session) {
-		libssh2_session_disconnect(session, "Normal shutdown");
-		libssh2_session_free(session);
+	/* Do channel clean up */
+	if (channel) {
+		do {
+			rc = libssh2_channel_close(channel);
+		} while (rc == LIBSSH2_ERROR_EAGAIN);
+
+		if (rc != 0) fprintf(stderr, "[-] Unable to close channel.\n");
+
+		do {
+			rc = libssh2_channel_free(channel);
+		} while (rc == LIBSSH2_ERROR_EAGAIN);
+
+		if (rc != 0) fprintf(stderr, "[-] Unable to free channel resources.\n");
+		channel = NULL;
 	}
 
+	/* Do transport layer session clean up */
+	if (session) {
+		do {
+			rc = libssh2_session_disconnect(session, "Normal shutdown");
+		} while (rc == LIBSSH2_ERROR_EAGAIN);
+
+		if (rc != 0) fprintf(stderr, "[-] Unable to terminate session.\n");
+		
+		do {
+			rc = libssh2_session_free(session);
+		} while (rc == LIBSSH2_ERROR_EAGAIN);
+
+		if (rc != 0) fprintf(stderr, "[-] Unable to free session resources.\n");
+	}
+
+	/* Do socket clean up */
 	if (sock != LIBSSH2_INVALID_SOCKET) {
-		shutdown(sock, 2);
-		close(sock);
+		rc = shutdown(sock, SHUT_RDWR);
+		if (rc != 0) fprintf(stderr, "[-] Error while shutting down the socket.\n");
+		rc = close(sock);
+		if (rc != 0) fprintf(stderr, "[-] Error while closing the socket.\n");
 	}
 
 	libssh2_exit();
-	printf("libssh2_client return value: %d\n", rc);
+
+	/* Reset stdin file status flags */
+	fcntl(STDIN_FILENO, F_SETFL, old_flags);
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldtc);
+
 	return rc;
 }
 
@@ -277,6 +363,7 @@ check_for_known_host(const char *fingerprint, level_t *level)
 	if (fp != NULL) {
 		while (fgets(kh_entry, sizeof(kh_entry), fp) != NULL) {
 			sscanf(kh_entry, "%[^:]:%[^\n]", kh_name, kh_fprint);
+
 			/* Match host name first */
 			if (strncmp(level->gamename, kh_name, MAX_NAME_WIDTH) == 0) {
 				/* Match host key */
@@ -339,6 +426,10 @@ get_level_pass(level_t *level)
 	size_t len;
 	char passbuf[MAX_PASS_WIDTH] = {0};
 
+	if (level->is_pass_saved) {
+		return;
+	}
+
 	fprintf(stderr, "[!] Enter password: ");
 	fgets(passbuf, MAX_PASS_WIDTH, stdin);
 
@@ -358,7 +449,7 @@ save_correct_pass(level_t *level, level_t **all_levels)
 	(void) level;
 	(void) all_levels;
 
-	fprintf(stderr, "correct pass saved.\n");
+	fprintf(stderr, "[*] Password saved.\n");
 
 //	int idx;
 //	
@@ -379,7 +470,7 @@ clear_bad_pass(level_t *level, level_t **all_levels)
 	(void) level;
 	(void) all_levels;
 
-	fprintf(stderr, "bad pass was cleared.\n");
+	fprintf(stderr, "[*] Cleared stored password that did not work.\n");
 
 //	int idx;
 //	
@@ -407,233 +498,4 @@ print_hex_fingerprint(const char *buf, int len)
 
 	fprintf(stderr, "\n");
 	return;
-}
-
-static int
-waitsocket(libssh2_socket_t socket_fd, LIBSSH2_SESSION *session)
-{
-	int rc, dir;
-	fd_set fd;
-	struct timeval timeout;
-
-	fd_set *writefd = NULL;
-	fd_set *readfd  = NULL;
-
-	timeout.tv_sec  = 10;
-	timeout.tv_usec = 0;
-
-	FD_ZERO(&fd);
-	FD_SET(socket_fd, &fd);
-
-	/* Now make sure we wait in the correct direction */
-	dir = libssh2_session_block_directions(session);
-
-	if (dir & LIBSSH2_SESSION_BLOCK_INBOUND)  readfd  = &fd;
-	if (dir & LIBSSH2_SESSION_BLOCK_OUTBOUND) writefd = &fd;
-
-	rc = select((int)(socket_fd + 1), readfd, writefd, NULL, &timeout);
-
-	return rc;
-}
-
-static int
-ssh2_echo(LIBSSH2_SESSION *session, LIBSSH2_CHANNEL *channel, libssh2_socket_t sock)
-{
-	int rc;
-
-	int   exitcode = 0;
-	char  commandline[] = "id";
-	char *exitsignal = "none";
-
-	while ((rc = libssh2_channel_exec(channel, commandline)) == LIBSSH2_ERROR_EAGAIN) {
-		waitsocket(sock, session);
-	}
-
-	if (rc) {
-		fprintf(stderr, "Exec error.\n");
-		return 1;
-	} else {
-		int i;
-		char buffer[BUFSIZE];
-
-		int running  = 1;
-		int rereads  = 0;
-		int rewrites = 0;
-		ssize_t bufsize    = BUFSIZE;
-		ssize_t totread    = 0;
-		ssize_t totwritten = 0;
-		ssize_t totsize    = 1500000;
-		LIBSSH2_POLLFD *fds = NULL;
-
-		for (i = 0; i < BUFSIZE; i++) {
-			buffer[i] = 'A';
-		}
-
-		fds = (LIBSSH2_POLLFD *) malloc(sizeof(LIBSSH2_POLLFD));
-		if (!fds) {
-			fprintf(stderr, "Malloc failed.\n");
-			return 1;
-		}
-
-		fds[0].type = LIBSSH2_POLLFD_CHANNEL;
-		fds[0].fd.channel = channel;
-		fds[0].events = LIBSSH2_POLLFD_POLLIN | LIBSSH2_POLLFD_POLLOUT;
-
-		do {
-			int act = 0;
-
-			rc = libssh2_poll(fds, 1, 10);
-			if (rc < 1) continue;
-
-			if (fds[0].revents & LIBSSH2_POLLFD_POLLIN) {
-				ssize_t n = libssh2_channel_read(channel, buffer, sizeof(buffer));
-				act++;
-
-				if (n == LIBSSH2_ERROR_EAGAIN) {
-					rereads++;
-					fprintf(stderr, "Will read again.\n");
-				} else if (n < 0) {
-					fprintf(stderr, "Read failed.\n");
-					return 1;
-				} else {
-					totread += n;
-					fprintf(stderr, "Read %d bytes (%d in total).\n", (int) n, (int) totread);
-				}
-			}
-
-			if (fds[0].revents & LIBSSH2_POLLFD_POLLOUT) {
-				act++;
-
-				if (totwritten < totsize) {
-					/* we have not written all data yet */
-					ssize_t left = totsize - totwritten;
-					ssize_t size = (left < bufsize) ? left : bufsize;
-					ssize_t n    = libssh2_channel_write_ex(channel, 0, buffer, size);
-
-					if (n == LIBSSH2_ERROR_EAGAIN) {
-						rewrites++;
-						fprintf(stderr, "Will write again.\n");
-					} else if (n < 0) {
-						fprintf(stderr, "Write failed.\n");
-						return 1;
-					} else {
-						totwritten += n;
-						fprintf(stderr, "Wrote %d bytes (%d in total).", (int) n, (int) totwritten);
-						if ((left >= bufsize) && (n != bufsize)) {
-							fprintf(stderr, " PARTIAL");
-						}
-						fprintf(stderr, "\n");
-					}
-				} else {
-					/* All data has been written, send EOF */
-					rc = libssh2_channel_send_eof(channel);
-
-					if (rc == LIBSSH2_ERROR_EAGAIN) {
-						fprintf(stderr, "Will send eof again.\n");
-					} else if (rc < 0) {
-						fprintf(stderr, "Send eof failed.\n");
-						return 1;
-					} else {
-						fprintf(stderr, "Sent eof.\n");
-						/* we're done writing, stop listening for OUT events */
-						fds[0].events &= ~LIBSSH2_POLLFD_POLLOUT;
-					}
-				}
-			}
-
-			if (fds[0].revents & LIBSSH2_POLLFD_CHANNEL_CLOSED) {
-				/* Don't leave loop until we have read all data */
-				if (!act) running = 0;
-			}
-		} while (running);
-
-		exitcode = 127;
-
-		while ((rc = libssh2_channel_close(channel)) == LIBSSH2_ERROR_EAGAIN) {
-			waitsocket(sock, session);
-		}
-
-		if (rc == 0) {
-			exitcode = libssh2_channel_get_exit_status(channel);
-			libssh2_channel_get_exit_signal(channel, &exitsignal, NULL, NULL, NULL, NULL, NULL);
-		}
-
-		if (exitsignal) {
-			fprintf(stderr, "\nGot signal: %s\n", exitsignal);
-		}
-
-		libssh2_channel_free(channel);
-		channel = NULL;
-
-		fprintf(stderr, "\nrereads: %d, rewrites: %d, totwritten %d\n", rereads, rewrites, (int) totwritten);
-
-//		if (totwritten != totread) {
-//			fprintf(stderr, "\n*** FAIL bytes written: %d, bytes read: %d ***\n", (int) totwritten, (int) totread);
-//			return 1;
-//		}
-	}
-
-	return exitcode;
-}
-
-int
-poll_example(libssh2_socket_t sock)
-{
-	(void) sock;
-
-#if 0
-
-	int ready;
-	char buf[10];
-	ssize_t s;
-	nfds_t j;
-
-	nfds_t nfds = 1;
-	nfds_t num_open_fds = 1;
-	struct pollfd *pfds = NULL;
-
-	pfds = (struct pollfd *) calloc(nfds, sizeof(struct pollfd));
-	if (pfds == NULL) errExit("calloc");
-
-	/* Add fd to 'pfds' array. */
-	pfds[0].fd = sock;
-	pfds[0].events = POLLIN | POLLOUT;
-
-	/* Keep calling poll as long as at least one file descriptor is open. */
-	while (num_open_fds > 0) {
-		fprintf(stderr, "About to poll.\n");
-
-		ready = poll(pfds, nfds, -1);
-		if (ready == -1) errExit("poll");
-
-		fprintf(stderr, "%d file %s ready.\n", ready, (ready == 1) ? "descriptor" : "descriptors");
-
-		/* Deal with array returned by poll(). */
-		for (j = 0; j < nfds; j++) {
-			if (pfds[j].revents != 0) {
-				fprintf(stderr, "  fd: %d; events: %s%s%s\n", pfds[j].fd,
-						(pfds[j].revents & POLLIN)  ? "POLLIN "  : "",
-						(pfds[j].revents & POLLHUP) ? "POLLHUP " : "",
-						(pfds[j].revents & POLLERR) ? "POLLERR " : "");
-
-				if (pfds[j].revents & POLLIN) {
-					s = read(pfds[j].fd, buf, sizeof(buf));
-					if (s == -1) errExit("read");
-
-					fprintf(stderr, "    read %zd bytes: %.*s\n", s, (int) s, buf);
-				} else {                /* POLLERR | POLLHUP */
-					fprintf(stderr, "    closing fd %d\n", pfds[j].fd);
-
-					if (close(pfds[j].fd) == -1) errExit("close");
-					num_open_fds--;
-				}
-			}
-		}
-	}
-
-	fprintf(stderr, "All file descriptors closed; bye.\n");
-
-#endif
-
-	return EXIT_SUCCESS;
 }
