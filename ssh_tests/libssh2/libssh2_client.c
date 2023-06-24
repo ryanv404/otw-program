@@ -52,8 +52,9 @@ main(int argc, char **argv)
 	int rc, written, old_flags, new_flags;
 	libssh2_socket_t sock;
 	struct addrinfo hints;
-	struct termios oldtc;
-	struct termios tc;
+	struct termios oldtc, tc;
+	char inputbuf[BUFSIZE];
+	char commandbuf[BUFSIZE];
 	char hostname[MAX_ADDR_WIDTH];
 
 	char *userauthlist		 = NULL;
@@ -62,9 +63,8 @@ main(int argc, char **argv)
 	LIBSSH2_SESSION *session = NULL;
 	LIBSSH2_CHANNEL *channel = NULL;
 
-	char inputbuf[BUFSIZE];
-	char commandbuf[BUFSIZE];
 	
+	int termchanged = 0;
 	const char numfds = 2;
 	struct pollfd pfds[numfds];
 
@@ -189,6 +189,8 @@ main(int argc, char **argv)
 	old_flags = fcntl(STDIN_FILENO, F_GETFL);
 	new_flags = old_flags | O_NONBLOCK;
 	rc = fcntl(STDIN_FILENO, F_SETFL, new_flags);
+
+	termchanged = 1;
 	if (rc == -1) {
 		fprintf(stderr, "[-] Failed to set stdin to non-blocking.\n");
 		goto shutdown;
@@ -213,8 +215,8 @@ main(int argc, char **argv)
 	libssh2_channel_set_blocking(channel, 0);
 
 	/* Set stdin to raw mode */
-	tcgetattr(STDIN_FILENO, &oldtc);
-	tc = oldtc;
+	tcgetattr(STDIN_FILENO, &tc);
+	memcpy(&oldtc, &tc, sizeof(struct termios));
 	cfmakeraw(&tc);
 	tcsetattr(STDIN_FILENO, TCSANOW, &tc);
 
@@ -290,6 +292,7 @@ shutdown:
 
 		if (rc != 0) fprintf(stderr, "[-] Unable to free channel resources.\n");
 		channel = NULL;
+
 	}
 
 	/* Do transport layer session clean up */
@@ -317,9 +320,13 @@ shutdown:
 
 	libssh2_exit();
 
-	/* Reset stdin file status flags */
-	fcntl(STDIN_FILENO, F_SETFL, old_flags);
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldtc);
+	if (termchanged) {
+		/* Reset stdin file status flags */
+		fcntl(STDIN_FILENO, F_SETFL, old_flags);
+
+		/* Revert to original local terminal settings */
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldtc);
+	}
 
 	return rc;
 }
