@@ -1,5 +1,0 @@
-#ifndef LIBSSH2_CLIENT_H
-#define LIBSSH2_CLIENT_H
-
-
-#endif /* LIBSSH2_CLIENT_H */
