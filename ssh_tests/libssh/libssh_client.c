@@ -4,43 +4,53 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-
 #include <sys/select.h>
 #include <sys/time.h>
-
 #include <termios.h>
 #include <unistd.h>
 #include <pty.h>
-
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
 #include <fcntl.h>
 
-#include <libssh/sftp.h>
 #include <libssh/libssh.h>
-#include <libssh/callbacks.h>
-
-#include "examples_common.h"
 
 static struct termios terminal;
 
+static int   signal_delayed = 0;
 static char *host = NULL;
 static char *user = NULL;
-static int signal_delayed = 0;
 
-static void
-usage(void)
+static void error(ssh_session session);
+static void do_cleanup(int i);
+static void do_exit(int i);
+static void sigwindowchanged(int i);
+static void setsignal(void);
+static void sizechanged(ssh_channel chan);
+static void select_loop(ssh_session session, ssh_channel channel);
+static void shell(ssh_session session);
+static int  client(ssh_session session);
+static int  verify_knownhost(ssh_session session);
+static int  authenticate_console(ssh_session session);
+
+int
+main(int argc, char **argv)
 {
-	fprintf(stderr,
-			"usage: ssh [options] [login@]hostname\n\n"
-			"    -r          Use RSA to verify host public key.\n"
-			"    -l user     Log in as user.\n"
-			"    -p portnum  Connect to port `portnum`.\n\n"
-			"sample SSH client - libssh-%s\n",
-			ssh_version(0));
+	ssh_session session;
 
-	exit(EXIT_SUCCESS);
+	ssh_init();
+	session = ssh_new();
+
+	signal(SIGTERM, do_exit);
+
+	client(session);
+
+	ssh_disconnect(session);
+	ssh_free(session);
+
+	ssh_finalize();
+	return EXIT_SUCCESS;
 }
 
 static void
@@ -48,7 +58,6 @@ do_cleanup(int i)
 {
   /* unused variable */
   (void) i;
-
   tcsetattr(STDIN_FILENO, TCSANOW, &terminal);
   return;
 }
@@ -58,7 +67,6 @@ do_exit(int i)
 {
 	/* unused variable */
 	(void) i;
-
 	do_cleanup(0);
 	exit(EXIT_SUCCESS);
 }
@@ -68,7 +76,6 @@ sigwindowchanged(int i)
 {
 	(void) i;
 	signal_delayed = 1;
-	
 	return;
 }
 
@@ -77,7 +84,6 @@ setsignal(void)
 {
 	signal(SIGWINCH, sigwindowchanged);
 	signal_delayed = 0;
-	
 	return;
 }
 
@@ -239,29 +245,125 @@ client(ssh_session session)
 	return 0;
 }
 
-int
-main(int argc, char **argv)
+static void
+error(ssh_session session)
 {
-	ssh_session session;
+	fprintf(stderr, "Authentication failed: %s\n", ssh_get_error(session));
+	return;
+}
 
-	ssh_init();
-	session = ssh_new();
+static int
+authenticate_console(ssh_session session)
+{
+	int rc;
+	int method;
 
-	if (ssh_options_getopt(session, &argc, argv)) {
-		fprintf(stderr, "Error parsing the command line: %s\n",
-				ssh_get_error(session));
-		ssh_free(session);
-		ssh_finalize();
-		usage();
+	char password[128] = {0};
+
+	/* Try to authenticate */
+	rc = ssh_userauth_none(session, NULL);
+	if (rc == SSH_AUTH_ERROR) {
+		error(session);
+		return rc;
 	}
 
-	signal(SIGTERM, do_exit);
+	method = ssh_userauth_list(session, NULL);
+	
+	while (rc != SSH_AUTH_SUCCESS) {
+		/* Try to authenticate with password */
+		if (ssh_getpass("\nPassword: ", password, sizeof(password), 1, 0) < 0) {
+			return SSH_AUTH_ERROR;
+		}
 
-	client(session);
+		if (method & SSH_AUTH_METHOD_PASSWORD) {
+			rc = ssh_userauth_password(session, NULL, password);
+			if (rc == SSH_AUTH_ERROR) {
+				error(session);
+				return rc;
+			} else if (rc == SSH_AUTH_SUCCESS) {
+				fprintf(stderr, "Authentication succeeded.\n\n");
+				break;
+			}
+		}
+		memset(password, 0, sizeof(password));
+	}
 
-	ssh_disconnect(session);
-	ssh_free(session);
+	return rc;
+}
 
-	ssh_finalize();
-	return EXIT_SUCCESS;
+static int
+verify_knownhost(ssh_session session)
+{
+    int rc;
+    size_t hlen;
+    ssh_key srv_pubkey;
+    enum ssh_known_hosts_e state;
+
+    char buf[10] = {0};
+    unsigned char *hash = NULL;
+
+    rc = ssh_get_server_publickey(session, &srv_pubkey);
+    if (rc < 0) {
+        return -1;
+    }
+
+    rc = ssh_get_publickey_hash(srv_pubkey,
+                                SSH_PUBLICKEY_HASH_SHA256,
+                                &hash,
+                                &hlen);
+    
+	ssh_key_free(srv_pubkey);
+    if (rc < 0) {
+        return -1;
+    }
+
+    state = ssh_session_is_known_server(session);
+
+    switch(state) {
+    case SSH_KNOWN_HOSTS_CHANGED:
+        fprintf(stderr, "Host key for the server has changed. The server's host key now is:\n");
+        ssh_print_hash(SSH_PUBLICKEY_HASH_SHA256, hash, hlen);
+        ssh_clean_pubkey_hash(&hash);
+        fprintf(stderr, "\nFor security reasons, the connection will be stopped.\n");
+        return -1;
+
+    case SSH_KNOWN_HOSTS_OTHER:
+        fprintf(stderr, "The host key for this server was not found but an other type of key exists.\n");
+        fprintf(stderr, "An attacker might change the default server key to confuse your client\n");
+        fprintf(stderr, "into thinking the key does not exist.\n");
+        fprintf(stderr, "We advise you to rerun the client with -d or -r for more safety.\n");
+        return -1;
+
+    case SSH_KNOWN_HOSTS_NOT_FOUND:
+        fprintf(stderr, "Could not find a known host file. If you accept the host key here,\n");
+        fprintf(stderr, "the file will be automatically created.\n");
+        /* fall through */
+
+    case SSH_SERVER_NOT_KNOWN:
+        fprintf(stderr, "This server is currently unknown.\n");
+        ssh_print_hash(SSH_PUBLICKEY_HASH_SHA256, hash, hlen);
+		fprintf(stderr, "\nDo you trust the host key (yes/no)? ");
+
+        if (fgets(buf, sizeof(buf), stdin) == NULL) {
+            ssh_clean_pubkey_hash(&hash);
+            return -1;
+        }
+        
+		if (strncasecmp(buf, "yes", 3) != 0) {
+            ssh_clean_pubkey_hash(&hash);
+            return -1;
+        }
+        break;
+
+    case SSH_KNOWN_HOSTS_ERROR:
+        ssh_clean_pubkey_hash(&hash);
+        fprintf(stderr, "%s", ssh_get_error(session));
+        return -1;
+
+    case SSH_KNOWN_HOSTS_OK:
+        break; /* ok */
+    }
+
+    ssh_clean_pubkey_hash(&hash);
+    return 0;
 }
