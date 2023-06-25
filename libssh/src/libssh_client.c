@@ -29,7 +29,7 @@ static void sigwindowchanged(int i);
 static void setsignal(void);
 static void sizechanged(ssh_channel chan);
 static void select_loop(ssh_session session, ssh_channel channel);
-static void shell(ssh_session session);
+static int  shell(ssh_session session);
 static int  client(ssh_session session, level_t *level);
 static int  verify_knownhost(ssh_session session);
 static int  do_password_authentication(ssh_session session, level_t *level);
@@ -37,16 +37,21 @@ static int  do_password_authentication(ssh_session session, level_t *level);
 int
 libssh_connect(level_t *level)
 {
+	int rc;
 	ssh_session session;
 
 	/* Initialize libssh functions */
-	ssh_init();
+	rc = ssh_init();
+	if (rc != SSH_OK) {
+		fprintf(stderr, "[-] Failed to initialize libssh.\n");
+		return SSH_ERROR;
+	}
 
 	/* Allocate a new ssh session */
 	session = ssh_new();
 	if (session == NULL) {
-		fprintf(stderr, "[-] Error initializing a new ssh session.\n");
-		return 1;
+		fprintf(stderr, "[-] Failed to create a new ssh session.\n");
+		return SSH_ERROR;
 	}
 
 	signal(SIGTERM, do_exit);
@@ -59,8 +64,11 @@ libssh_connect(level_t *level)
 		ssh_free(session);
 	}
 
-	ssh_finalize();
-	return 0;
+	/* Necessary when ssh_init is explicitly called */
+	rc = ssh_finalize();
+	if (rc != SSH_OK) fprintf(stderr, "[-] Error while deinitializing libssh.\n");
+
+	return SSH_OK;
 }
 
 static void
@@ -68,7 +76,6 @@ do_cleanup(int i)
 {
 	/* unused variable */
 	(void) i;
-
 
 	/* Restore local terminal to its original state */
 	tcsetattr(STDIN_FILENO, TCSANOW, &terminal);
@@ -171,7 +178,7 @@ select_loop(ssh_session session, ssh_channel channel)
 	return;
 }
 
-static void
+static int
 shell(ssh_session session)
 {
 	int rc;
@@ -187,14 +194,14 @@ shell(ssh_session session)
 	channel = ssh_channel_new(session);
 	if (channel == NULL) {
 		fprintf(stderr, "[-] Error while creating a channel.\n");
-		return;
+		return SSH_ERROR;
 	}
 
 	/* Open a channel to exchange data with the remote server */
 	if (ssh_channel_open_session(channel)) {
 		fprintf(stderr, "[-] Error opening channel.\n");
 		ssh_channel_free(channel);
-		return;
+		return SSH_ERROR;
 	}
 	
 	/* Save current terminal state */
@@ -208,7 +215,7 @@ shell(ssh_session session)
 		fprintf(stderr, "[-] Request for remote pty failed.\n");
 		do_cleanup(0);
 		ssh_channel_free(channel);
-		return;
+		return SSH_ERROR;
 	}
 
 	rc = ssh_channel_request_shell(channel);
@@ -216,7 +223,7 @@ shell(ssh_session session)
 		fprintf(stderr, "[-] Request for remote shell failed.\n");
 		do_cleanup(0);
 		ssh_channel_free(channel);
-		return;
+		return SSH_ERROR;
 	}
 
 	/* Set raw mode for the local terminal */
@@ -232,7 +239,7 @@ shell(ssh_session session)
 	do_cleanup(0);
 	ssh_channel_free(channel);
 
-	return;
+	return SSH_OK;
 }
 
 static int
@@ -245,32 +252,31 @@ client(ssh_session session, level_t *level)
 	char *banner = NULL;
 	char  hostname[MAX_ADDR_WIDTH] = {0};
 
-	/* Configure session to connect to the level and to use the local known hosts file */
 	sprintf(hostname, "%s.labs.overthewire.org", level->gamename);
-	rc = ssh_options_set(session, SSH_OPTIONS_HOST, hostname);
-	if (rc < 0) return 1;
-	rc = ssh_options_set(session, SSH_OPTIONS_PORT, &port);
-	if (rc < 0) return 1;
-	rc = ssh_options_set(session, SSH_OPTIONS_USER, level->levelname);
-	if (rc < 0) return 1;
-	rc = ssh_options_set(session, SSH_OPTIONS_SSH_DIR, DATADIR);
-	if (rc < 0) return 1;
-	rc = ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, KNOWNHOSTS);
-	if (rc < 0) return 1;
-	rc = ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, KNOWNHOSTS);
-	if (rc < 0) return 1;
+	
+	/* Configure session to connect to the level and to use the local known hosts file */
+	if ((ssh_options_set(session, SSH_OPTIONS_HOST, hostname) < 0)         ||
+	    (ssh_options_set(session, SSH_OPTIONS_PORT, &port) < 0)            ||
+	    (ssh_options_set(session, SSH_OPTIONS_USER, level->levelname) < 0) ||
+	    (ssh_options_set(session, SSH_OPTIONS_SSH_DIR, DATADIR) < 0)       ||
+	    (ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, KNOWNHOSTS) < 0) ||
+	    (ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, KNOWNHOSTS) < 0)) {
+		fprintf(stderr, "[-] Error while setting ssh options.\n");
+		ssh_free(session);
+		return SSH_ERROR;
+	}
 
 	/* Connect to the server */
 	rc = ssh_connect(session);
 	if (rc != SSH_OK) {
 		fprintf(stderr, "[-] Error connecting to %s: %s\n", hostname, ssh_get_error(session));
 		ssh_free(session);
-		return 1;
+		return SSH_ERROR;
 	}
 
 	/* Verify the server's identity */
 	if (verify_knownhost(session) < 0) {
-		return 1;
+		return SSH_ERROR;
 	}
 
 	/* Get server's banner */
@@ -284,13 +290,13 @@ client(ssh_session session, level_t *level)
 	/* Authenticate with password */
 	auth = do_password_authentication(session, level);
 	if (auth != SSH_AUTH_SUCCESS) {
-		return 1;
+		return SSH_ERROR;
 	}
 	
 	/* Run remote shell */
 	shell(session);
 
-	return 0;
+	return SSH_OK;
 }
 
 static int
@@ -321,7 +327,7 @@ do_password_authentication(ssh_session session, level_t *level)
 
 			if (rc == SSH_AUTH_ERROR) {
 				fprintf(stderr, "[-] Authentication failed.\n");
-				return 1;
+				return SSH_AUTH_ERROR;
 			} else if (rc == SSH_AUTH_SUCCESS) {
 				return SSH_AUTH_SUCCESS;
 			} else {
@@ -335,7 +341,7 @@ do_password_authentication(ssh_session session, level_t *level)
 		fprintf(stderr, "[-] Server does not appear to accept password authentication.\n");
 	}
 
-	return 1;
+	return SSH_AUTH_ERROR;
 }
 
 static int
@@ -350,7 +356,7 @@ verify_knownhost(ssh_session session)
 	unsigned char *hash = NULL;
 
 	rc = ssh_get_server_publickey(session, &srv_pubkey);
-	if (rc < 0) return 1;
+	if (rc < 0) return SSH_ERROR;
 
 	rc = ssh_get_publickey_hash(srv_pubkey,
 								SSH_PUBLICKEY_HASH_SHA256,
@@ -358,55 +364,56 @@ verify_knownhost(ssh_session session)
 								&hlen);
 
 	ssh_key_free(srv_pubkey);
-	if (rc < 0) return 1;
+	if (rc < 0) return SSH_ERROR;
 
 	state = ssh_session_is_known_server(session);
 
 	switch (state) {
 	case SSH_KNOWN_HOSTS_CHANGED:
-		fprintf(stderr, "Host key for the server has changed. The server's host key now is:\n");
+		fprintf(stderr, "[-] Host key for the server has changed.\n"
+						"    The server's current host key is:\n\n");
 		ssh_print_hash(SSH_PUBLICKEY_HASH_SHA256, hash, hlen);
 		ssh_clean_pubkey_hash(&hash);
-		fprintf(stderr, "\nFor security reasons, the connection will be stopped.\n");
-		return 1;
+		fprintf(stderr, "\n[-] For security reasons, the connection will be stopped.\n");
+		return SSH_ERROR;
 
 	case SSH_KNOWN_HOSTS_OTHER:
-		fprintf(stderr, "The host key for this server was not found but an other type of key exists.\n");
-		fprintf(stderr, "An attacker might change the default server key to confuse your client\n");
-		fprintf(stderr, "into thinking the key does not exist.\n");
-		fprintf(stderr, "We advise you to rerun the client with -d or -r for more safety.\n");
-		return 1;
+		fprintf(stderr, "[-] The host key for this server was not found but an other type of\n"
+						"    key exists. An attacker might change the default server key to\n"
+						"    confuse your client into thinking the key does not exist.\n"
+						"    It is advised that you rerun the client with -d or -r for more safety.\n");
+		return SSH_ERROR;
 
 	case SSH_KNOWN_HOSTS_NOT_FOUND:
-		fprintf(stderr, "Could not find a known host file. If you accept the host key here,\n");
-		fprintf(stderr, "the file will be automatically created.\n");
+		fprintf(stderr, "[-] Could not find a known hosts file. If you accept the host key here,\n"
+						"    the file will be automatically created.\n");
 		/* fall through */
 
 	case SSH_SERVER_NOT_KNOWN:
-		fprintf(stderr, "[*] This server is currently unknown.\n");
+		fprintf(stderr, "[*] This server is currently unknown:\n");
 		ssh_print_hash(SSH_PUBLICKEY_HASH_SHA256, hash, hlen);
-		fprintf(stderr, "[*] Do you trust the host's key (yes/no)? ");
+		fprintf(stderr, "\n[*] Do you trust the host's key (yes/no)? ");
 
 		if (fgets(buf, sizeof(buf), stdin) == NULL) {
 			ssh_clean_pubkey_hash(&hash);
-			return 1;
+			return SSH_ERROR;
 		}
 
 		if (strncasecmp(buf, "yes", 3) != 0) {
 			ssh_clean_pubkey_hash(&hash);
-			return 1;
+			return SSH_ERROR;
 		}
 		break;
 
 	case SSH_KNOWN_HOSTS_ERROR:
 		ssh_clean_pubkey_hash(&hash);
 		fprintf(stderr, "%s", ssh_get_error(session));
-		return 1;
+		return SSH_ERROR;
 
 	case SSH_KNOWN_HOSTS_OK:
 		break; /* ok */
 	}
 
 	ssh_clean_pubkey_hash(&hash);
-	return 0;
+	return SSH_OK;
 }

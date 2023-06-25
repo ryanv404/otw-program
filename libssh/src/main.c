@@ -39,7 +39,6 @@ main(int argc, char **argv)
 		quit(ERR_BAD_LEVEL_ARG);
 	}
 
-
 	/* Connect to the level */
 	if (strncmp(level->gamename, "natas", MAX_NAME_WIDTH) != 0) {
 		libssh_connect(level);

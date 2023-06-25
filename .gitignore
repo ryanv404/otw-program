@@ -1,5 +1,9 @@
 .vscode/
-build/
-bin/
-data/
-notes/
+
+libssh/build/
+libssh/bin/
+libssh/data/
+
+libssh2/build/
+libssh2/bin/
+libssh2/data/
