@@ -63,8 +63,8 @@ otw bandit21
 otw -s deadbeef bandit21  <-- Do this once.
 
 otw bandit21  <-------------- And from now on this will
-							  connect automatically to
-							  the level.
+                              connect automatically to
+			      the level.
 
 # Displays the user's progress at completing all
 # of the OTW levels.
