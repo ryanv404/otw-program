@@ -173,7 +173,7 @@ store_pass(char *pass, char *levelname, level_t *level, level_t **all_levels)
 {
 	int namelen, passlen, idx;
 
-	if (level->levelname == NULL) {
+	if (strlen(level->levelname) == 0) {
 		namelen = (int) strnlen(levelname, MAX_NAME_WIDTH);
 		memcpy(level->levelname, levelname, namelen);
 		level->levelname[MAX_NAME_WIDTH - 1] = '\0';

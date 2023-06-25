@@ -1,4 +1,6 @@
 /* libssh2_client.c */
+#define _POSIX_C_SOURCE 200112L
+#define _DEFAULT_SOURCE
 
 #include "lssh2/ssh.h"
 
@@ -51,7 +53,7 @@ libssh2_connect(level_t *level, level_t **all_levels)
 	/* Initialize libssh2 functions */
 	rc = libssh2_init(0);
 	if (rc != 0) {
-		fprintf(stderr, "[-] Could not initialize libssh2.\n");
+		fprintf(stderr, "[-] Failed to initialize libssh2.\n");
 		return -1;
 	}
 
@@ -91,7 +93,7 @@ libssh2_connect(level_t *level, level_t **all_levels)
 	/* Init SSH session object */
 	session = libssh2_session_init();
 	if (!session) {
-		fprintf(stderr, "[-] Could not initialize an SSH session.\n");
+		fprintf(stderr, "[-] Failed to initialize an SSH session.\n");
 		rc = 1;
 		goto shutdown;
 	}
@@ -190,9 +192,11 @@ libssh2_connect(level_t *level, level_t **all_levels)
 	/* Set non-blocking mode on channel */
 	libssh2_channel_set_blocking(channel, 0);
 
-	/* Set stdin to raw mode */
+	/* Save original terminal settings */
 	tcgetattr(STDIN_FILENO, &tc);
 	memcpy(&oldtc, &tc, sizeof(struct termios));
+
+	/* Set stdin to raw mode */
 	cfmakeraw(&tc);
 	tcsetattr(STDIN_FILENO, TCSANOW, &tc);
 
@@ -294,17 +298,14 @@ shutdown:
 		if (rc != 0) fprintf(stderr, "[-] Error while closing the socket.\n");
 	}
 
-	/* De-initialize libssh2 functions */
-	libssh2_exit();
-
 	/* Restore local terminal to its original state */
 	if (termchanged) {
-		/* Reset stdin file status flags; re-enable blocking mode */
-		fcntl(STDIN_FILENO, F_SETFL, old_flags);
-
-		/* Reset to original local terminal settings */
 		tcsetattr(STDIN_FILENO, TCSANOW, &oldtc);
+		fcntl(STDIN_FILENO, F_SETFL, old_flags);
 	}
+
+	/* De-initialize libssh2 functions */
+	libssh2_exit();
 
 	return rc;
 }

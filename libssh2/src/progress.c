@@ -3,6 +3,8 @@
 #include "lssh2/progress.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "lssh2/config.h"
 #include "lssh2/misc.h"
