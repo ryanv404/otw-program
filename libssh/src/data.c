@@ -47,7 +47,7 @@ create_new_datafile(void)
 	    {"narnia",    "2226",  9}, {"behemoth",   "2221",  8},
 	    {"utumno",    "2227",  8}, {"maze",       "2225",  9},
 	    {"vortex",    "2228", 27}, {"manpage",    "2224",  7},
-	    {"drifter",   "2230", 15}, {"formulaone", "2223",  6}
+	    {"drifter",   "2230", 15}, {"formulaone", "2232",  6}
 	};
 
 	stat(DATADIR, &sb);

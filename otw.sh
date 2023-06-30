@@ -5,19 +5,19 @@
 # By: ryanv404, 2023.
 #########################################################
 
-### GLOBALS ###
-SCRIPT_NAME="$0"
+###[ GLOBALS ]###########################################
 ARGCOUNT="$#"
-PASS_FILE_NAME="otw_passwords.txt"
-PASS_DIR="${HOME}/.otw"
-PASS_FILE_PATH="${PASS_DIR}/${PASS_FILE_NAME}"
+SCRIPT_NAME="$0"
 LEVEL="$1"
 LEVEL_NAME=""
 LEVEL_PASS=""
 RHOST=""
 RPORT=""
-
-### LEVELS DATA ###
+PASS_DIR="${HOME}/.otw"
+PASS_FILE_NAME="otw_passwords.txt"
+PASS_FILE_PATH="${PASS_DIR}/${PASS_FILE_NAME}"
+s
+###[ LEVELS DATA ]#######################################
 declare -A LEVELS=(
   [bandit]="2220 34"
   [natas]="0000 34"
@@ -30,9 +30,10 @@ declare -A LEVELS=(
   [vortex]="2228 27"
   [manpage]="2224 7"
   [drifter]="2230 15"
-  [formulaone]="2223 6"
+  [formulaone]="2232 6"
 )
 
+###[ FUNCTIONS ]#########################################
 is_correct_usage() {
   if (( ARGCOUNT != 1 )); then
     echo "[-] usage: ${SCRIPT_NAME} <LEVEL>"
@@ -46,8 +47,8 @@ has_dependencies() {
   local dep=""
   local cmd=""
 
-  [ ! -x "$(command -v ssh 2>/dev/null)" ] && rv=1
-  [ ! -x "$(command -v expect 2>/dev/null)" ] && (( rv = rv ? 3 : 2 ))
+  [[ ! -x "$(command -v ssh 2>/dev/null)" ]] && rv=1
+  [[ ! -x "$(command -v expect 2>/dev/null)" ]] && (( rv = rv ? 3 : 2 ))
 
   case "${rv}" in
     0) return 0;;
@@ -67,11 +68,11 @@ split_level_arg() {
     LEVEL_NAME="${BASH_REMATCH[1]}"
     level_num="${BASH_REMATCH[2]}"
     return 0
-  else
-    echo "[-] Valid OTW levels are: bandit, natas, leviathan, krypton, narnia,"
-    echo "    behemoth, utumno, maze, vortex, manpage, drifter, and formulaone."
-    return 1
   fi
+
+  echo "[-] Valid OTW levels are: bandit, natas, leviathan, krypton, narnia,"
+  echo "    behemoth, utumno, maze, vortex, manpage, drifter, and formulaone."
+  return 1
 }
 
 validate_level() {
@@ -133,15 +134,14 @@ create_password_file() {
       max_level="${levelArr[1]}"
 
       for (( i = 0; i <= max_level; i++ )); do
-        if [[ "${lname}${i}" == "bandit0" ]]; then
-          echo "${lname}${i}:bandit0" >> "${actual_file_path}"
-          continue
-        fi
-        echo "${lname}${i}:x" >> "${actual_file_path}"
+        case "${lname}${i}" in
+          "bandit0")
+          "natas0") echo "${lname}${i}:${lname}${i}" >> "${actual_file_path}"; continue;;
+          *) echo "${lname}${i}:x" >> "${actual_file_path}"
+        esac
       done
     done
   fi
-
   return 0
 }
 
@@ -154,7 +154,6 @@ get_saved_password() {
       break
     fi
   done < "${actual_file_path}"
-
   return 0
 }
 
@@ -172,56 +171,80 @@ get_level_password() {
       echo "[-] Unable to create an OTW passwords file."
     fi
   fi
-
   return 0
 }
 
 handle_natas_levels() {
-  echo "${LEVEL} is a natas level and the pass is ${LEVEL_PASS}"
+  echo "[*] Use a web browser to connect to natas levels:"
+  echo "Username: ${LEVEL}"
+  [[ LEVEL_PASS != "x" ]] && echo "Password: ${LEVEL_PASS}"
+  echo "Website:  http://${LEVEL}.natas.labs.overthewire.org"
   return 0
 }
 
-### RUN EXPECT COMMANDS ###
+###[ RUN EXPECT COMMANDS ]###############################
 connect_with_expect() {
   expect -c "set LEVEL ${1}; set RHOST ${2}; set RPORT ${3}; set LEVEL_PASS ${4};" -c '
+
   log_user 0
-  match_max 2000
+  match_max 10000
   set timeout 20
 
   send_user -- "\[\*\] Connecting to ${RHOST} as ${LEVEL}...\n"
+
+  puts [info vars]
+
   spawn ssh -p ${RPORT} "${LEVEL}@${RHOST}"
 
   expect {
-    # Accept host key if this is the first connection
-    -re "fingerprint.* $" {
+    "yes/no*" {
       send -- "yes\r"
-      exp_continue
+    } "assword: " {
+      if {$LEVEL_PASS == "x"} {
+        send_user -- "\[*\] Enter the $LEVEL password: "
+        expect_user -re "(.*)\n"
+        set NEW_PASS $expect_out(1,string)
+    		send -- "$NEW_PASS\r"
+      } else {
+        send -- "$LEVEL_PASS\r"
+      }
+    } timeout {
+      send_user -- "\[-\] The connection timed out.\n"
+      return 1
+    } eof {
+      send_user -- "\[-\] The program received an EOF from the server.\n"
+      return 1
     }
-    # Allow user to manually enter password if saved password is incorrect
-    -re ".*please try again.*" {
-      send_user -- "\[-\] The password was incorrect. Switching to interactive.\n"
-      send -- "\r"
-      interact
-    }
-    # Enter level password
-    -re ".*password: $" {
-      send_user -- "\[\*\] Authenticating...\n"
-      send -- "${LEVEL_PASS}\r"
-      exp_continue
-    }
-    # Switch control to user once we receive a shell prompt
-    ".*\$ $" {
-      send_user -- "\[+\] Successfully logged in to ${LEVEL}\n"
-      send -- "\r"
-      interact
-    }
-    timeout { send_user -- "\[-\] The program timed out.\n"; return 1; }
-    eof { send_user -- "\[-\] The program received EOF.\n"; return 1; }
   }
+
+  expect {
+    "please try again*: " {
+      send_user -- "\[*\] Incorrect password. Enter the $LEVEL password: "
+      expect_user -re "(.*)\n"
+      set NEW_PASS $expect_out(1,string)
+  		send -- "$NEW_PASS\r"
+  		exp_continue
+    } "assword: " {
+      send -- "$LEVEL_PASS\r"
+      exp_continue
+    } "\$ " {
+      # Save new password
+      send_user -- "\[+\] Successfully logged in as $LEVEL\n"
+      send -- "\r"
+    } timeout {
+      send_user -- "\[-\] The connection timed out.\n"
+      return 1
+    } eof {
+      send_user -- "\[-\] The program received an EOF from the server.\n"
+      return 1
+    }
+  }
+
+  interact
 '
 }
 
-### MAIN FUNCTION ###
+###[ MAIN FUNCTION ]#####################################
 main() {
   # Validate user input and existence of program dependencies (ssh & Expect)
   is_correct_usage || exit 1
@@ -244,5 +267,5 @@ main() {
   exit 0
 }
 
-### RUN MAIN PROGRAM ###
+###[ RUN MAIN PROGRAM ]##################################
 main "$@"
